@@ -1,0 +1,52 @@
+[
+  {
+    "gate": "schemaCheck",
+    "status": "passed",
+    "output": "0 step file(s) valid",
+    "durationMs": 0
+  },
+  {
+    "gate": "build",
+    "status": "passed",
+    "output": "> agents-diet@0.1.0 build /Users/batur/Documents/Projects/bytecraft/agentic/agents-diet\n> tsc --project tsconfig.build.json\n\n\n> agents-diet@0.1.0 pack:check /Users/batur/Documents/Projects/bytecraft/agentic/agents-diet\n> node scripts/pack-check.mjs\n\nagents-diet-0.1.0.tgz: 9 file(s), 7.6 KiB packed, 21.5 KiB unpacked\n  LICENSE (1.0 KiB)\n  README.md (2.9 KiB)\n  dist/check.d.ts (2.6 KiB)\n  dist/check.js (10.0 KiB)\n  dist/cli.d.ts (0.0 KiB)\n  dist/cli.js (3.5 KiB)\n  dist/index.d.ts (0.2 KiB)\n  dist/index.js (0.1 KiB)\n  package.json (1.1 KiB)\n\npack check passed",
+    "durationMs": 2031,
+    "command": "pnpm build && pnpm pack:check",
+    "cwd": "/Users/batur/Documents/Projects/bytecraft/agentic/agents-diet"
+  },
+  {
+    "gate": "typeCheck",
+    "status": "passed",
+    "output": "> agents-diet@0.1.0 typecheck /Users/batur/Documents/Projects/bytecraft/agentic/agents-diet\n> tsc --noEmit",
+    "durationMs": 649,
+    "command": "pnpm typecheck",
+    "cwd": "/Users/batur/Documents/Projects/bytecraft/agentic/agents-diet"
+  },
+  {
+    "gate": "lint",
+    "status": "skipped",
+    "output": "No targetProject.commands.lint configured.",
+    "durationMs": 0
+  },
+  {
+    "gate": "tests",
+    "status": "passed",
+    "output": "> agents-diet@0.1.0 test /Users/batur/Documents/Projects/bytecraft/agentic/agents-diet\n> pnpm build && node --test tests/*.test.mjs\n\n\n> agents-diet@0.1.0 build /Users/batur/Documents/Projects/bytecraft/agentic/agents-diet\n> tsc --project tsconfig.build.json\n\nTAP version 13\n# Subtest: a clean project has no finding\nok 1 - a clean project has no finding\n  ---\n  duration_ms: 40.817416\n  ...\n# Subtest: sizes: bytes in UTF-8, characters, and tokens as characters / 4\nok 2 - sizes: bytes in UTF-8, characters, and tokens as characters / 4\n  ---\n  duration_ms: 36.678541\n  ...\n# Subtest: each finding kind is reported once on the file it belongs to\nok 3 - each finding kind is reported once on the file it belongs to\n  ---\n  duration_ms: 46.486416\n  ...\n# Subtest: the limit: the flag, then package.json, then .agents-diet.json, then 32768, and its source\nok 4 - the limit: the flag, then package.json, then .agents-diet.json, then 32768, and its source\n  ---\n  duration_ms: 143.422875\n  ...\n# Subtest: .claude/CLAUDE.md with the import satisfies the root; @./AGENTS.md is an import too\nok 5 - .claude/CLAUDE.md with the import satisfies the root; @./AGENTS.md is an import too\n  ---\n  duration_ms: 69.491667\n  ...\n# Subtest: references that exist or are not paths are not reported\nok 6 - references that exist or are not paths are not reported\n  ---\n  duration_ms: 56.916875\n  ...\n# Subtest: @imports in CLAUDE.md are checked like other references\nok 7 - @imports in CLAUDE.md are checked like other references\n  ---\n  duration_ms: 35.018584\n  ...\n# Subtest: files under node_modules, .git, dist, build, coverage and .pnpm-store are not looked at\nok 8 - files under node_modules, .git, dist, build, coverage and .pnpm-store are not looked at\n  ---\n  duration_ms: 15.267542\n  ...\n# Subtest: referencedPaths keeps one entry per path\nok 9 - referencedPaths keeps one entry per path\n  ---\n  duration_ms: 0.093541\n  ...\n# Subtest: check only reads\nok 10 - check only reads\n  ---\n  duration_ms: 36.543625\n  ...\n# Subtest: code, versions, hosts and bare extensions are not paths\nok 11 - code, versions, hosts and bare extensions are not paths\n  ---\n  duration_ms: 0.106417\n  ...\n# Subtest: a file named without a directory may live anywhere in the project\nok 12 - a file named without a directory may live anywhere in the project\n  ---\n  duration_ms: 37.121125\n  ...\n# Subtest: in a Git checkout, ignored files are not checked and ignored paths are not dead\nok 13 - in a Git checkout, ignored files are not checked and ignored paths are not dead\n  ---\n  duration_ms: 59.694333\n  ...\n# Subtest: ignore: paths the project leaves out, from package.json or .agents-diet.json\nok 14 - ignore: paths the project leaves out, from package.json or .agents-diet.json\n  ---\n  duration_ms: 90.786083\n  ...\n# Subtest: a directory that does not exist is a usage error\nok 15 - a directory that does not exist is a usage error\n  ---\n  duration_ms: 0.082458\n  ...\n# Subtest: --version prints the package version; --help and no command exit 0\nok 16 - --version prints the package version; --help and no command exit 0\n  ---\n  duration_ms: 109.085667\n  ...\n# Subtest: check exits 0 on a clean project and prints the summary\nok 17 - check exits 0 on a clean project and prints the summary\n  ---\n  duration_ms: 85.782875\n  ...\n# Subtest: check exits 1 on findings and names them\nok 18 - check exits 1 on findings and names them\n  ---\n  duration_ms: 71.859042\n  ...\n# Subtest: --json prints the documented shape\nok 19 - --json prints the documented shape\n  ---\n  duration_ms: 63.858167\n  ...\n# Subtest: usage errors exit 2: unknown command, unknown option, bad limit, not a directory\nok 20 - usage errors exit 2: unknown command, unknown option, bad limit, not a directory\n  ---\n  duration_ms: 214.135625\n  ...\n1..20\n# tests 20\n# suites 0\n# pass 20\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 721.116542",
+    "durationMs": 1685,
+    "command": "pnpm test",
+    "cwd": "/Users/batur/Documents/Projects/bytecraft/agentic/agents-diet"
+  },
+  {
+    "gate": "templateCheck",
+    "status": "passed",
+    "output": "> agents-diet@0.1.0 template:check /Users/batur/Documents/Projects/bytecraft/agentic/agents-diet\n> node scripts/template-check.mjs\n\nTEMPLATE: 4 template-owned file(s), 0 overridden, none changed unmarked.",
+    "durationMs": 291,
+    "command": "pnpm template:check",
+    "cwd": "/Users/batur/Documents/Projects/bytecraft/agentic/agents-diet"
+  },
+  {
+    "gate": "security",
+    "status": "passed",
+    "output": "3 applied file(s) scanned — no issues",
+    "durationMs": 1
+  }
+]

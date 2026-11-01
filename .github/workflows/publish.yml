@@ -40,8 +40,6 @@ jobs:
     runs-on: ${{ fromJSON(vars.AIFACTORY_RUNS_ON || '["ubuntu-latest"]') }}
     env:
       TAG: ${{ inputs.tag || (github.ref_type == 'tag' && github.ref_name) || '' }}
-      # npm provenance needs a GitHub-hosted runner.
-      PROVENANCE: ${{ runner.environment == 'github-hosted' && '--provenance' || '' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -93,9 +91,16 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          [ -n "$PROVENANCE" ] || echo "::notice::A self-hosted runner: published without npm provenance."
-          npm publish $PROVENANCE --access public
+          # npm issues provenance only on a GitHub-hosted runner (RQ-0153: the
+          # runner context exists in a step, not in the job's env).
+          provenance=""
+          [ "$RUNNER_ENVIRONMENT" = "github-hosted" ] && provenance="--provenance"
+          [ -n "$provenance" ] || echo "::notice::A self-hosted runner: published without npm provenance."
+          npm publish $provenance --access public
 
       - name: Publish (dry run)
         if: env.TAG == ''
-        run: npm publish $PROVENANCE --access public --dry-run
+        run: |
+          provenance=""
+          [ "$RUNNER_ENVIRONMENT" = "github-hosted" ] && provenance="--provenance"
+          npm publish $provenance --access public --dry-run
