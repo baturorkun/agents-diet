@@ -24,11 +24,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/baturorkun/agent-diet.git"
+    "url": "git+https://github.com/baturorkun/agents-diet.git"
   },
-  "homepage": "https://github.com/baturorkun/agent-diet#readme",
+  "homepage": "https://github.com/baturorkun/agents-diet#readme",
   "bugs": {
-    "url": "https://github.com/baturorkun/agent-diet/issues"
+    "url": "https://github.com/baturorkun/agents-diet/issues"
   },
   "publishConfig": {
     "access": "public"
