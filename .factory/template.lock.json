@@ -1,0 +1,9 @@
+{
+  "aifactory": "aifactory@0.151.0",
+  "files": {
+    ".github/workflows/ci.yml": "b29e60020cf39dab5a1c1ef99dd9a8090f629ade91321e034ff9e49c0aebdcaf",
+    ".github/workflows/publish.yml": "226cf9a57671448e7913181f885a285a7934528c7db7bbf97ce9dbefd01f7a4d",
+    "scripts/pack-check.mjs": "3c59e180542125b053abbaf4a078e08b7509820fbb08d061d7bba3fe265e78ce",
+    "scripts/template-check.mjs": "8c348b02813053a440ef87bd7e58aaef6ecfa5b870771f6660853efe89656202"
+  }
+}
