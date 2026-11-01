@@ -42,8 +42,8 @@
     "template:check": "node scripts/template-check.mjs"
   },
   "devDependencies": {
-    "aifactory-cli": "0.151.0",
-    "typescript": "^5.4.5",
-    "@types/node": "^20.11.0"
+    "@types/node": "^20.11.0",
+    "aifactory-cli": "0.152.0",
+    "typescript": "^5.4.5"
   }
 }

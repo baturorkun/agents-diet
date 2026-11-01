@@ -4,6 +4,9 @@ name: ci
 # (aifactory npm-package template, RQ-0151): the same checks the publish
 # workflow runs before a release, on each Node version engines allows, so a
 # break shows on the pull request and not on the release tag.
+#
+# The runner: the repository variable AIFACTORY_RUNS_ON (a JSON list of labels,
+# e.g. ["self-hosted"]), else GitHub-hosted ubuntu-latest (RQ-0152).
 
 on:
   pull_request:
@@ -19,7 +22,7 @@ concurrency:
 
 jobs:
   checks:
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.AIFACTORY_RUNS_ON || '["ubuntu-latest"]') }}
     strategy:
       fail-fast: false
       matrix:

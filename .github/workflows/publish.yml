@@ -3,8 +3,8 @@ name: publish
 # Publishes the package to npmjs (aifactory npm-package template, RQ-0151).
 #
 # - A pushed tag v<version>: checked against package.json, the four checks,
-#   then npm publish --provenance. The tag is pushed by a person; an agent
-#   never creates one.
+#   then npm publish, with provenance on a GitHub-hosted runner. The tag is
+#   pushed by a person; an agent never creates one.
 # - Run by hand: npm publish --dry-run of the default branch, unless a tag
 #   is given, which is then published as a pushed one would be.
 #
@@ -13,7 +13,9 @@ name: publish
 # repository secret NPM_TOKEN (an npm automation or granular token). The first
 # publish of a new package name may have to be made by hand. The README says how.
 #
-# GitHub-hosted runner: npm provenance is not issued on a self-hosted one.
+# The runner: the repository variable AIFACTORY_RUNS_ON (a JSON list of labels,
+# e.g. ["self-hosted"]), else GitHub-hosted ubuntu-latest (RQ-0152). npm issues
+# provenance only on a GitHub-hosted runner; a self-hosted one publishes without it.
 
 on:
   push:
@@ -35,9 +37,11 @@ concurrency:
 
 jobs:
   publish:
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(vars.AIFACTORY_RUNS_ON || '["ubuntu-latest"]') }}
     env:
       TAG: ${{ inputs.tag || (github.ref_type == 'tag' && github.ref_name) || '' }}
+      # npm provenance needs a GitHub-hosted runner.
+      PROVENANCE: ${{ runner.environment == 'github-hosted' && '--provenance' || '' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -66,7 +70,8 @@ jobs:
 
       - name: package.json names this repository
         # npm provenance refuses a package whose repository is not the one the
-        # workflow runs in; say so before the checks, not after them.
+        # workflow runs in; say so before the checks, not after them. Checked on
+        # every runner, so a move to a GitHub-hosted one does not surprise.
         run: |
           url="$(node -p "const r = require('./package.json').repository; (typeof r === 'string' ? r : (r && r.url) || '')")"
           case "$url" in
@@ -87,8 +92,10 @@ jobs:
         if: env.TAG != ''
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish --provenance --access public
+        run: |
+          [ -n "$PROVENANCE" ] || echo "::notice::A self-hosted runner: published without npm provenance."
+          npm publish $PROVENANCE --access public
 
       - name: Publish (dry run)
         if: env.TAG == ''
-        run: npm publish --provenance --access public --dry-run
+        run: npm publish $PROVENANCE --access public --dry-run

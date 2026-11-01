@@ -12,8 +12,8 @@ importers:
         specifier: ^20.11.0
         version: 20.19.43
       aifactory-cli:
-        specifier: 0.151.0
-        version: 0.151.0
+        specifier: 0.152.0
+        version: 0.152.0
       typescript:
         specifier: ^5.4.5
         version: 5.9.3
@@ -23,8 +23,8 @@ packages:
   '@types/node@20.19.43':
     resolution: {integrity: sha512-6oYBAi5ikg4Pl+kGsoYtawUMBT2zZMCvPNF7pVLnHZfd1zf38DRiWn/gT01RYCdUqkv7Fhr+C9ot4/tb+2sVvA==}
 
-  aifactory-cli@0.151.0:
-    resolution: {integrity: sha512-eihlfcpmHcdAL4jSKEoTo5po0ppFd/fvKRZ33mPCC15Kx8B5FaabF0dVEAqJ3xEj5ksXecBMgnu1qmFiP9VkBg==}
+  aifactory-cli@0.152.0:
+    resolution: {integrity: sha512-oiPlwHA+nG2ysQQnMeEmZ6qKgpgUSniX4E23ONaNpF5gnpnJVFm3AzqT66HgCDWqGcMPbpYCEfxuYe3pRQWvxQ==}
     engines: {node: '>=20'}
     hasBin: true
 
@@ -42,7 +42,7 @@ snapshots:
     dependencies:
       undici-types: 6.21.0
 
-  aifactory-cli@0.151.0: {}
+  aifactory-cli@0.152.0: {}
 
   typescript@5.9.3: {}
 
