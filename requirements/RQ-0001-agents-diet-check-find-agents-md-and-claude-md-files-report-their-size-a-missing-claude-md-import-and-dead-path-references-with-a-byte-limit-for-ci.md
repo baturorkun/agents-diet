@@ -8,6 +8,8 @@ createdByEmail: "batur@bc.int"
 createdAt: "2026-11-01T19:02:03.691Z"
 branch: "factory/RQ-0001"
 createdFromCommit: "56a6fdf95d072865f4d039da79b5250c2ca9e202"
+githubPullRequestUrl: "https://github.com/baturorkun/NetForgeSH/pull/2"
+githubPullRequestIid: 2
 githubIssueUrl: "https://github.com/baturorkun/NetForgeSH/issues/525"
 githubIssueIid: 525
 repositoryProvider: github
