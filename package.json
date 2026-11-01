@@ -37,7 +37,7 @@
     "factory": "factory",
     "typecheck": "tsc --noEmit",
     "build": "tsc --project tsconfig.build.json",
-    "test": "pnpm build && node --test tests/",
+    "test": "pnpm build && node --test tests/*.test.mjs",
     "pack:check": "node scripts/pack-check.mjs",
     "template:check": "node scripts/template-check.mjs"
   },
