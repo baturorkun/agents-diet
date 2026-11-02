@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { check, UsageError, type Report } from './check.js';
-import { install, type InstallTarget } from './install.js';
+import { init, type InitTarget } from './init.js';
 
 const HELP = `Usage: agents-diet <command> [options]
 
@@ -10,7 +10,7 @@ Commands:
   check [dir]          Find AGENTS.md and CLAUDE.md files under dir (default: .)
                        and report their size, a missing CLAUDE.md or its
                        @AGENTS.md import, and paths they name that do not exist.
-  install [dir]        Put the agents-diet skill into the project, so its agent
+  init [dir]           Put the agents-diet skill into the project, so its agent
                        knows how to shrink the files: .claude/skills/agents-diet/
                        (and .codex/skills/agents-diet/ when .codex/ exists).
 
@@ -19,7 +19,7 @@ Options for check:
                        "agents-diet".maxBytes, .agents-diet.json, or 32768)
   --json               Print the report as JSON
 
-Options for install:
+Options for init:
   --claude, --codex    Install for that agent only (default: Claude Code, and
                        Codex when the project has a .codex/ directory)
   --force              Replace a copy of the skill someone changed
@@ -93,18 +93,18 @@ function main(argv: string[]): number {
     console.log(HELP);
     return 0;
   }
-  if ((command !== 'check' && command !== 'install') || rest.length > 0) {
-    console.error(command !== 'check' && command !== 'install' ? `Unknown command: ${command}` : `Unexpected argument: ${rest[0]}`);
+  if ((command !== 'check' && command !== 'init') || rest.length > 0) {
+    console.error(command !== 'check' && command !== 'init' ? `Unknown command: ${command}` : `Unexpected argument: ${rest[0]}`);
     console.error(HELP);
     return 2;
   }
   try {
-    if (command === 'install') {
+    if (command === 'init') {
       for (const [option, forCommand] of [['json', 'check'], ['max-bytes', 'check']] as const) {
-        if (values[option] !== undefined) throw new UsageError(`--${option} applies to ${forCommand}, not install`);
+        if (values[option] !== undefined) throw new UsageError(`--${option} applies to ${forCommand}, not init`);
       }
-      const targets = (['claude', 'codex'] as InstallTarget[]).filter((target) => values[target]);
-      const results = install(dir, { targets, force: values.force });
+      const targets = (['claude', 'codex'] as InitTarget[]).filter((target) => values[target]);
+      const results = init(dir, { targets, force: values.force });
       for (const result of results) {
         const said = result.outcome === 'written' ? 'wrote' : result.outcome === 'current' ? 'already current' : 'kept (changed here; --force replaces it)';
         console.log(`${said}  ${result.path}`);
@@ -112,7 +112,7 @@ function main(argv: string[]): number {
       return 0;
     }
     for (const option of ['claude', 'codex', 'force'] as const) {
-      if (values[option]) throw new UsageError(`--${option} applies to install, not check`);
+      if (values[option]) throw new UsageError(`--${option} applies to init, not check`);
     }
     const raw = values['max-bytes'];
     const maxBytes = raw === undefined ? undefined : /^\d+$/.test(raw) ? Number(raw) : Number.NaN;

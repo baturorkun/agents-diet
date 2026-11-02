@@ -3,23 +3,23 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { UsageError } from './check.js';
 
-export type InstallTarget = 'claude' | 'codex';
+export type InitTarget = 'claude' | 'codex';
 
 /** Where each agent looks for a project's skills. */
-export const SKILL_RELATIVE_PATHS: Record<InstallTarget, string> = {
+export const SKILL_RELATIVE_PATHS: Record<InitTarget, string> = {
   claude: '.claude/skills/agents-diet/SKILL.md',
   codex: '.codex/skills/agents-diet/SKILL.md',
 };
 
-export interface InstallOptions {
-  /** The agents to install for; default: Claude Code, and Codex when `.codex/` exists. */
-  targets?: InstallTarget[];
+export interface InitOptions {
+  /** The agents to set up; default: Claude Code, and Codex when `.codex/` exists. */
+  targets?: InitTarget[];
   /** Replace a copy the user changed. */
   force?: boolean;
 }
 
-export interface InstallResult {
-  target: InstallTarget;
+export interface InitResult {
+  target: InitTarget;
   path: string;
   /** written: new or the package's own earlier copy replaced; kept: a changed copy left alone; current: already this version. */
   outcome: 'written' | 'kept' | 'current';
@@ -37,7 +37,7 @@ export function packagedSkill(): { text: string; version: string } {
 }
 
 /** Which agents a project uses, by their directories. */
-export function defaultTargets(root: string): InstallTarget[] {
+export function defaultTargets(root: string): InitTarget[] {
   return existsSync(join(root, '.codex')) ? ['claude', 'codex'] : ['claude'];
 }
 
@@ -46,12 +46,12 @@ export function defaultTargets(root: string): InstallTarget[] {
  * earlier (its version line says so) is replaced; a copy someone changed is
  * kept and reported, unless force.
  */
-export function install(dir: string, options: InstallOptions = {}): InstallResult[] {
+export function init(dir: string, options: InitOptions = {}): InitResult[] {
   const root = resolve(dir);
   if (!existsSync(root) || !statSync(root).isDirectory()) throw new UsageError(`${dir} is not a directory`);
   const skill = packagedSkill();
   const targets = options.targets && options.targets.length > 0 ? options.targets : defaultTargets(root);
-  return targets.map((target): InstallResult => {
+  return targets.map((target): InitResult => {
     const relativePath = SKILL_RELATIVE_PATHS[target];
     const path = join(root, relativePath);
     if (existsSync(path)) {

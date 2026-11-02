@@ -3,7 +3,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
-import { install, SKILL_RELATIVE_PATHS, UsageError } from '../dist/index.js';
+import { init, SKILL_RELATIVE_PATHS, UsageError } from '../dist/index.js';
 import { withProject } from './helpers.mjs';
 
 const skill = readFileSync('skill/SKILL.md', 'utf8');
@@ -25,59 +25,62 @@ test('the shipped skill names itself, triggers on shrinking, and carries the pac
   assert.match(skill, /Run `git commit`/);
 });
 
-test('install writes the Claude Code copy by default, and the Codex copy when .codex/ exists or --codex is given', () => {
+test('init writes the Claude Code copy by default, and the Codex copy when .codex/ exists or --codex is given', () => {
   withProject({ 'package.json': '{}' }, (root) => {
-    assert.deepEqual(install(root), [{ target: 'claude', path: SKILL_RELATIVE_PATHS.claude, outcome: 'written' }]);
+    assert.deepEqual(init(root), [{ target: 'claude', path: SKILL_RELATIVE_PATHS.claude, outcome: 'written' }]);
     assert.equal(readFileSync(join(root, SKILL_RELATIVE_PATHS.claude), 'utf8'), skill);
     assert.ok(!existsSync(join(root, '.codex')));
   });
   withProject({ '.codex/config.toml': '' }, (root) => {
-    assert.deepEqual(install(root).map((result) => [result.target, result.outcome]), [['claude', 'written'], ['codex', 'written']]);
+    assert.deepEqual(init(root).map((result) => [result.target, result.outcome]), [['claude', 'written'], ['codex', 'written']]);
     assert.equal(readFileSync(join(root, SKILL_RELATIVE_PATHS.codex), 'utf8'), skill);
   });
   withProject({}, (root) => {
-    assert.deepEqual(install(root, { targets: ['codex'] }).map((result) => result.target), ['codex']);
+    assert.deepEqual(init(root, { targets: ['codex'] }).map((result) => result.target), ['codex']);
     assert.ok(!existsSync(join(root, '.claude')));
   });
 });
 
-test('install replaces only its own earlier copy; a changed copy is kept unless --force', () => {
+test('init replaces only its own earlier copy; a changed copy is kept unless --force', () => {
   withProject({}, (root) => {
     const path = join(root, SKILL_RELATIVE_PATHS.claude);
     mkdirSync(join(root, '.claude/skills/agents-diet'), { recursive: true });
     // Ours, from an earlier version: replaced.
     writeFileSync(path, skill.replace(/^agents-diet-version: .*$/m, 'agents-diet-version: 0.0.1'));
-    assert.equal(install(root)[0].outcome, 'written');
+    assert.equal(init(root)[0].outcome, 'written');
     assert.equal(readFileSync(path, 'utf8'), skill);
     // Already this version: current, untouched.
-    assert.equal(install(root)[0].outcome, 'current');
+    assert.equal(init(root)[0].outcome, 'current');
     // Edited by the project: kept, then replaced with force.
     writeFileSync(path, skill + '\n- Also: never touch the CSS.\n');
-    assert.equal(install(root)[0].outcome, 'kept');
+    assert.equal(init(root)[0].outcome, 'kept');
     assert.match(readFileSync(path, 'utf8'), /never touch the CSS/);
-    assert.equal(install(root, { force: true })[0].outcome, 'written');
+    assert.equal(init(root, { force: true })[0].outcome, 'written');
     assert.equal(readFileSync(path, 'utf8'), skill);
     // Someone else's skill of the same name: kept.
     writeFileSync(path, '---\nname: agents-diet\n---\nmine\n');
-    assert.equal(install(root)[0].outcome, 'kept');
+    assert.equal(init(root)[0].outcome, 'kept');
   });
 });
 
-test('install from the CLI: says what it did, exits 2 on usage errors', () => {
+test('init from the CLI: says what it did, exits 2 on usage errors; install is no command', () => {
   withProject({ '.codex/config.toml': '' }, (root) => {
-    const first = cli('install', root);
+    const first = cli('init', root);
     assert.equal(first.status, 0, first.stderr);
     assert.match(first.stdout, /^wrote {2}\.claude\/skills\/agents-diet\/SKILL\.md$/m);
     assert.match(first.stdout, /^wrote {2}\.codex\/skills\/agents-diet\/SKILL\.md$/m);
-    const again = cli('install', root, '--claude');
+    const again = cli('init', root, '--claude');
     assert.match(again.stdout, /^already current {2}\.claude/m);
     assert.doesNotMatch(again.stdout, /codex/);
     writeFileSync(join(root, SKILL_RELATIVE_PATHS.claude), 'changed\n');
-    assert.match(cli('install', root, '--claude').stdout, /^kept \(changed here; --force replaces it\)/m);
-    assert.match(cli('install', root, '--claude', '--force').stdout, /^wrote/m);
+    assert.match(cli('init', root, '--claude').stdout, /^kept \(changed here; --force replaces it\)/m);
+    assert.match(cli('init', root, '--claude', '--force').stdout, /^wrote/m);
   });
-  assert.equal(cli('install', '/no/such/agents-diet/dir').status, 2);
-  assert.equal(cli('install', '.', '--json').status, 2);
+  assert.equal(cli('init', '/no/such/agents-diet/dir').status, 2);
+  const old = cli('install', '.');
+  assert.equal(old.status, 2);
+  assert.match(old.stderr, /Unknown command: install/);
+  assert.equal(cli('init', '.', '--json').status, 2);
   assert.equal(cli('check', '.', '--force').status, 2);
-  assert.throws(() => install('/no/such/agents-diet/dir'), UsageError);
+  assert.throws(() => init('/no/such/agents-diet/dir'), UsageError);
 });
