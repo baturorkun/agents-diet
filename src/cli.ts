@@ -2,6 +2,7 @@
 import { readFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { check, UsageError, type Report } from './check.js';
+import { install, type InstallTarget } from './install.js';
 
 const HELP = `Usage: agents-diet <command> [options]
 
@@ -9,11 +10,19 @@ Commands:
   check [dir]          Find AGENTS.md and CLAUDE.md files under dir (default: .)
                        and report their size, a missing CLAUDE.md or its
                        @AGENTS.md import, and paths they name that do not exist.
+  install [dir]        Put the agents-diet skill into the project, so its agent
+                       knows how to shrink the files: .claude/skills/agents-diet/
+                       (and .codex/skills/agents-diet/ when .codex/ exists).
 
 Options for check:
   --max-bytes <n>      The size limit per file (else package.json
                        "agents-diet".maxBytes, .agents-diet.json, or 32768)
   --json               Print the report as JSON
+
+Options for install:
+  --claude, --codex    Install for that agent only (default: Claude Code, and
+                       Codex when the project has a .codex/ directory)
+  --force              Replace a copy of the skill someone changed
 
 Settings (package.json "agents-diet", else .agents-diet.json):
   maxBytes             the size limit per file
@@ -36,6 +45,12 @@ function human(report: Report): string {
     lines.push(`${file.path}  ${file.bytes.toLocaleString('en-US')} bytes  ~${file.tokens.toLocaleString('en-US')} tokens`);
     if (file.findings.length === 0) lines.push('  ✓ no finding');
     for (const finding of file.findings) lines.push(`  ✗ ${finding.message}`);
+    // The sections worth moving: over 1 KiB, largest first.
+    const large = file.sections.filter((section) => section.bytes > 1024).sort((a, b) => b.bytes - a.bytes);
+    for (const section of large) {
+      const marks = [section.numberedSteps > 0 ? `${section.numberedSteps} numbered steps` : '', section.codeBlocks > 0 ? `${section.codeBlocks} code blocks` : ''].filter(Boolean).join(', ');
+      lines.push(`  · ${section.heading === null ? '(before the first heading)' : `${'#'.repeat(section.level)} ${section.heading}`}  ${section.bytes.toLocaleString('en-US')} bytes${marks ? `  (${marks})` : ''}`);
+    }
   }
   if (report.files.length === 0) lines.push('No AGENTS.md or CLAUDE.md found.');
   const { files, bytes, findings } = report.summary;
@@ -54,6 +69,9 @@ function main(argv: string[]): number {
         version: { type: 'boolean', short: 'v' },
         json: { type: 'boolean' },
         'max-bytes': { type: 'string' },
+        claude: { type: 'boolean' },
+        codex: { type: 'boolean' },
+        force: { type: 'boolean' },
       },
     });
   } catch (error) {
@@ -75,12 +93,27 @@ function main(argv: string[]): number {
     console.log(HELP);
     return 0;
   }
-  if (command !== 'check' || rest.length > 0) {
-    console.error(command !== 'check' ? `Unknown command: ${command}` : `Unexpected argument: ${rest[0]}`);
+  if ((command !== 'check' && command !== 'install') || rest.length > 0) {
+    console.error(command !== 'check' && command !== 'install' ? `Unknown command: ${command}` : `Unexpected argument: ${rest[0]}`);
     console.error(HELP);
     return 2;
   }
   try {
+    if (command === 'install') {
+      for (const [option, forCommand] of [['json', 'check'], ['max-bytes', 'check']] as const) {
+        if (values[option] !== undefined) throw new UsageError(`--${option} applies to ${forCommand}, not install`);
+      }
+      const targets = (['claude', 'codex'] as InstallTarget[]).filter((target) => values[target]);
+      const results = install(dir, { targets, force: values.force });
+      for (const result of results) {
+        const said = result.outcome === 'written' ? 'wrote' : result.outcome === 'current' ? 'already current' : 'kept (changed here; --force replaces it)';
+        console.log(`${said}  ${result.path}`);
+      }
+      return 0;
+    }
+    for (const option of ['claude', 'codex', 'force'] as const) {
+      if (values[option]) throw new UsageError(`--${option} applies to install, not check`);
+    }
     const raw = values['max-bytes'];
     const maxBytes = raw === undefined ? undefined : /^\d+$/.test(raw) ? Number(raw) : Number.NaN;
     if (maxBytes !== undefined && Number.isNaN(maxBytes)) throw new UsageError(`--max-bytes: the limit must be a positive integer, not "${raw}"`);

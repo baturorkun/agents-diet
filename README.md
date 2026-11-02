@@ -13,12 +13,19 @@ then they cost more than they give, or they stop being read at all:
   it with the line `@AGENTS.md`.
 - Paths in the instructions point at files that were moved or deleted long ago.
 
-## Usage
+## Two commands
 
 ```sh
-npx agents-diet check          # the current directory
-npx agents-diet check path/to/project --json
+npx agents-diet check            # measure and diagnose; changes nothing
+npx agents-diet install          # give your agent the method to shrink
 ```
+
+`check` tells you what is wrong. Shrinking takes judgement (is this section a
+rule for every session, a procedure, a design note, history?), so that is done
+by your own agent, Claude Code or Codex, following the skill `install` puts in
+place. agents-diet never calls a model itself.
+
+## check
 
 ```
 AGENTS.md  20,143 bytes  ~4,994 tokens
@@ -51,6 +58,41 @@ usage error, so it works as a CI step:
 npx agents-diet check --max-bytes 16384
 ```
 
+### Sections
+
+Each file is also broken down by heading (`--json`: `files[].sections`, with
+`bytes`, `numberedSteps`, `codeBlocks` and the `paths` it names); the human
+report lists the sections over 1 KiB, largest first. That is what the skill
+works from when it decides what to move.
+
+## install
+
+```sh
+npx agents-diet install          # .claude/skills/agents-diet/SKILL.md
+npx agents-diet install --codex  # .codex/skills/agents-diet/SKILL.md too
+```
+
+Then ask your agent: *"put AGENTS.md on a diet"*. Following the skill it:
+
+1. runs `agents-diet check --json` and stops if there is nothing to shrink;
+2. fixes what is broken (a missing `CLAUDE.md`, dead paths);
+3. classifies every section, first match wins: **delete** (history, what the
+   code or a linter already enforces), **global** (a block shared by your
+   projects, moved to `~/.claude/CLAUDE.md` with your leave), **skill** (a
+   procedure, moved to `.claude/skills/<name>/`), **docs** (one area's rules,
+   moved to `docs/<area>.md` with one pointer line left behind),
+   **subdirectory** (rules for one directory), **keep**;
+4. rewrites what stays: imperative, one sentence per rule, no ticket trails;
+5. keeps `CLAUDE.md` importing `AGENTS.md`, with no rule in both;
+6. measures again and reports before/after, what moved where, what was deleted
+   and why, leaving the changes uncommitted for you.
+
+It never invents a rule, changes a rule's meaning, deletes what it does not
+understand, writes outside the project without asking, or commits.
+
+A copy you edited is kept on the next `install` (`--force` replaces it); a copy
+from an earlier agents-diet is updated.
+
 ## Settings
 
 In `package.json`, or the same keys in `.agents-diet.json`:
@@ -70,10 +112,13 @@ In `package.json`, or the same keys in `.agents-diet.json`:
 ## Library
 
 ```js
-import { check } from 'agents-diet';
+import { check, install } from 'agents-diet';
 
 const report = check('.', { maxBytes: 16384 });
 console.log(report.summary); // { files, bytes, findings }
+console.log(report.files[0].sections.map((s) => [s.heading, s.bytes]));
+
+install('.', { targets: ['claude'] }); // what the CLI's install does
 ```
 
 `check` returns what `--json` prints. No runtime dependencies; Node 20 or later.

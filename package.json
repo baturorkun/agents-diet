@@ -1,7 +1,7 @@
 {
   "name": "agents-diet",
   "version": "0.1.0",
-  "description": "",
+  "description": "Put your AGENTS.md and CLAUDE.md on a diet: measure them, find what is unread or dead, and give your agent the method to shrink them.",
   "type": "module",
   "exports": {
     ".": {
@@ -15,6 +15,7 @@
   },
   "files": [
     "dist",
+    "skill",
     "README.md",
     "LICENSE"
   ],

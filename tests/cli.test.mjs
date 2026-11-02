@@ -41,9 +41,21 @@ test('--json prints the documented shape', () => {
     const report = JSON.parse(result.stdout);
     assert.deepEqual(Object.keys(report), ['root', 'limit', 'ignore', 'files', 'summary']);
     assert.deepEqual(report.limit, { bytes: 1, source: 'flag' });
-    assert.deepEqual(Object.keys(report.files[0]), ['path', 'bytes', 'chars', 'tokens', 'findings']);
+    assert.deepEqual(Object.keys(report.files[0]), ['path', 'bytes', 'chars', 'tokens', 'findings', 'sections']);
     assert.deepEqual(report.files[0].findings.map((finding) => finding.kind), ['over-limit', 'missing-claude-md']);
     assert.deepEqual(report.summary, { files: 1, bytes: 2, findings: 2 });
+  });
+});
+
+test('the human report lists sections over 1 KiB, largest first', () => {
+  const big = (heading, size) => `## ${heading}\n\n${'x'.repeat(size)}\n\n`;
+  withProject({ 'AGENTS.md': `# Rules\n\n${big('Small', 100)}${big('Deploy', 1500)}1. step\n\n${big('Design', 3000)}`, 'CLAUDE.md': '@AGENTS.md\n' }, (root) => {
+    const result = cli('check', root);
+    const listed = result.stdout.split('\n').filter((line) => line.startsWith('  · '));
+    assert.equal(listed.length, 3, result.stdout);
+    assert.match(listed[0], /^ {2}· # Rules {2}[\d,]+ bytes/);
+    assert.match(listed[1], /^ {2}· ## Design {2}3,0\d\d bytes$/);
+    assert.match(listed[2], /^ {2}· ## Deploy {2}1,5\d\d bytes {2}\(1 numbered steps\)$/);
   });
 });
 
