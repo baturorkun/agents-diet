@@ -1,0 +1,52 @@
+[
+  {
+    "gate": "schemaCheck",
+    "status": "passed",
+    "output": "0 step file(s) valid",
+    "durationMs": 0
+  },
+  {
+    "gate": "build",
+    "status": "passed",
+    "output": "> agents-diet@0.1.0 build /Users/batur/Documents/Projects/bytecraft/agentic/agents-diet\n> tsc --project tsconfig.build.json\n\n\n> agents-diet@0.1.0 pack:check /Users/batur/Documents/Projects/bytecraft/agentic/agents-diet\n> node scripts/pack-check.mjs\n\nagents-diet-0.1.0.tgz: 12 file(s), 13.1 KiB packed, 37.8 KiB unpacked\n  LICENSE (1.0 KiB)\n  README.md (4.9 KiB)\n  dist/check.d.ts (3.6 KiB)\n  dist/check.js (12.2 KiB)\n  dist/cli.d.ts (0.0 KiB)\n  dist/cli.js (5.8 KiB)\n  dist/index.d.ts (0.4 KiB)\n  dist/index.js (0.2 KiB)\n  dist/install.d.ts (1.2 KiB)\n  dist/install.js (2.5 KiB)\n  package.json (1.2 KiB)\n  skill/SKILL.md (4.6 KiB)\n\npack check passed",
+    "durationMs": 2009,
+    "command": "pnpm build && pnpm pack:check",
+    "cwd": "/Users/batur/Documents/Projects/bytecraft/agentic/agents-diet"
+  },
+  {
+    "gate": "typeCheck",
+    "status": "passed",
+    "output": "> agents-diet@0.1.0 typecheck /Users/batur/Documents/Projects/bytecraft/agentic/agents-diet\n> tsc --noEmit",
+    "durationMs": 707,
+    "command": "pnpm typecheck",
+    "cwd": "/Users/batur/Documents/Projects/bytecraft/agentic/agents-diet"
+  },
+  {
+    "gate": "lint",
+    "status": "skipped",
+    "output": "No targetProject.commands.lint configured.",
+    "durationMs": 0
+  },
+  {
+    "gate": "tests",
+    "status": "passed",
+    "output": "> agents-diet@0.1.0 test /Users/batur/Documents/Projects/bytecraft/agentic/agents-diet\n> pnpm build && node --test tests/*.test.mjs\n\n\n> agents-diet@0.1.0 build /Users/batur/Documents/Projects/bytecraft/agentic/agents-diet\n> tsc --project tsconfig.build.json\n\nTAP version 13\n# Subtest: a clean project has no finding\nok 1 - a clean project has no finding\n  ---\n  duration_ms: 42.493959\n  ...\n# Subtest: sizes: bytes in UTF-8, characters, and tokens as characters / 4\nok 2 - sizes: bytes in UTF-8, characters, and tokens as characters / 4\n  ---\n  duration_ms: 39.662834\n  ...\n# Subtest: each finding kind is reported once on the file it belongs to\nok 3 - each finding kind is reported once on the file it belongs to\n  ---\n  duration_ms: 52.855708\n  ...\n# Subtest: the limit: the flag, then package.json, then .agents-diet.json, then 32768, and its source\nok 4 - the limit: the flag, then package.json, then .agents-diet.json, then 32768, and its source\n  ---\n  duration_ms: 159.667584\n  ...\n# Subtest: .claude/CLAUDE.md with the import satisfies the root; @./AGENTS.md is an import too\nok 5 - .claude/CLAUDE.md with the import satisfies the root; @./AGENTS.md is an import too\n  ---\n  duration_ms: 128.378209\n  ...\n# Subtest: references that exist or are not paths are not reported\nok 6 - references that exist or are not paths are not reported\n  ---\n  duration_ms: 74.51475\n  ...\n# Subtest: @imports in CLAUDE.md are checked like other references\nok 7 - @imports in CLAUDE.md are checked like other references\n  ---\n  duration_ms: 41.2555\n  ...\n# Subtest: files under node_modules, .git, dist, build, coverage and .pnpm-store are not looked at\nok 8 - files under node_modules, .git, dist, build, coverage and .pnpm-store are not looked at\n  ---\n  duration_ms: 17.718125\n  ...\n# Subtest: referencedPaths keeps one entry per path\nok 9 - referencedPaths keeps one entry per path\n  ---\n  duration_ms: 0.127167\n  ...\n# Subtest: check only reads\nok 10 - check only reads\n  ---\n  duration_ms: 40.616458\n  ...\n# Subtest: code, versions, hosts and bare extensions are not paths\nok 11 - code, versions, hosts and bare extensions are not paths\n  ---\n  duration_ms: 0.11575\n  ...\n# Subtest: a file named without a directory may live anywhere in the project\nok 12 - a file named without a directory may live anywhere in the project\n  ---\n  duration_ms: 38.65375\n  ...\n# Subtest: in a Git checkout, ignored files are not checked and ignored paths are not dead\nok 13 - in a Git checkout, ignored files are not checked and ignored paths are not dead\n  ---\n  duration_ms: 67.306834\n  ...\n# Subtest: ignore: paths the project leaves out, from package.json or .agents-diet.json\nok 14 - ignore: paths the project leaves out, from package.json or .agents-diet.json\n  ---\n  duration_ms: 94.304958\n  ...\n# Subtest: a directory that does not exist is a usage error\nok 15 - a directory that does not exist is a usage error\n  ---\n  duration_ms: 0.077083\n  ...\n# Subtest: --version prints the package version; --help and no command exit 0\nok 16 - --version prints the package version; --help and no command exit 0\n  ---\n  duration_ms: 115.387208\n  ...\n# Subtest: check exits 0 on a clean project and prints the summary\nok 17 - check exits 0 on a clean project and prints the summary\n  ---\n  duration_ms: 90.69525\n  ...\n# Subtest: check exits 1 on findings and names them\nok 18 - check exits 1 on findings and names them\n  ---\n  duration_ms: 77.001583\n  ...\n# Subtest: --json prints the documented shape\nok 19 - --json prints the documented shape\n  ---\n  duration_ms: 112.61\n  ...\n# Subtest: the human report lists sections over 1 KiB, largest first\nok 20 - the human report lists sections over 1 KiB, largest first\n  ---\n  duration_ms: 102.626917\n  ...\n# Subtest: usage errors exit 2: unknown command, unknown option, bad limit, not a directory\nok 21 - usage errors exit 2: unknown command, unknown option, bad limit, not a directory\n  ---\n  duration_ms: 231.212875\n  ...\n# Subtest: the shipped skill names itself, triggers on shrinking, and carries the package version\nok 22 - the shipped skill names itself, triggers on shrinking, and carries the package version\n  ---\n  duration_ms: 0.677709\n  ...\n# Subtest: install writes the Claude Code copy by default, and the Codex copy when .codex/ exists or --codex is given\nok 23 - install writes the Claude Code copy by default, and the Codex copy when .codex/ exists or --codex is given\n  ---\n  duration_ms: 6.140584\n  ...\n# Subtest: install replaces only its own earlier copy; a changed copy is kept unless --force\nok 24 - install replaces only its own earlier copy; a changed copy is kept unless --force\n  ---\n  duration_ms: 2.701667\n  ...\n# Subtest: install from the CLI: says what it did, exits 2 on usage errors\nok 25 - install from the CLI: says what it did, exits 2 on usage errors\n  ---\n  duration_ms: 269.037833\n  ...\n# Subtest: sections: the preamble, headings 1–3, nesting, steps, code blocks and paths\nok 26 - sections: the preamble, headings 1–3, nesting, steps, code blocks and paths\n  ---\n  duration_ms: 2.074334\n  ...\n# Subtest: sections: no preamble entry when the file starts with a heading; a file without headings is one preamble\nok 27 - sections: no preamble entry when the file starts with a heading; a file without headings is one preamble\n  ---\n  duration_ms: 0.114458\n  ...\n# Subtest: check reports sections per file\nok 28 - check reports sections per file\n  ---\n  duration_ms: 39.729709\n  ...\n1..28\n# tests 28\n# suites 0\n# pass 28\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 852.775083",
+    "durationMs": 1888,
+    "command": "pnpm test",
+    "cwd": "/Users/batur/Documents/Projects/bytecraft/agentic/agents-diet"
+  },
+  {
+    "gate": "templateCheck",
+    "status": "passed",
+    "output": "> agents-diet@0.1.0 template:check /Users/batur/Documents/Projects/bytecraft/agentic/agents-diet\n> node scripts/template-check.mjs\n\nTEMPLATE: 4 template-owned file(s), 0 overridden, none changed unmarked.",
+    "durationMs": 366,
+    "command": "pnpm template:check",
+    "cwd": "/Users/batur/Documents/Projects/bytecraft/agentic/agents-diet"
+  },
+  {
+    "gate": "security",
+    "status": "passed",
+    "output": "4 applied file(s) scanned — no issues",
+    "durationMs": 1
+  }
+]

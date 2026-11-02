@@ -27,6 +27,22 @@ export interface Finding {
   ref?: string;
 }
 
+/** A heading of level 1–3 and what stands under it, up to the next heading of its level or higher. */
+export interface Section {
+  /** The heading text without its `#`s; null for text before the first heading. */
+  heading: string | null;
+  /** 1–3; 0 for the preamble. */
+  level: number;
+  /** The heading line through the line before the next heading of the same or a higher level. */
+  bytes: number;
+  /** Lines starting with `1.`, `2.`, … or `- [ ]`: a procedure shows itself this way. */
+  numberedSteps: number;
+  /** Fenced code blocks. */
+  codeBlocks: number;
+  /** The referenced paths that fall in it. */
+  paths: string[];
+}
+
 export interface FileReport {
   /** Relative to the checked directory, with `/`. */
   path: string;
@@ -35,6 +51,7 @@ export interface FileReport {
   /** An estimate: characters / 4, rounded up. */
   tokens: number;
   findings: Finding[];
+  sections: Section[];
 }
 
 export type LimitSource = 'flag' | 'package.json' | '.agents-diet.json' | 'default';
@@ -162,6 +179,53 @@ export function referencedPaths(text: string): string[] {
   return [...new Set(paths)];
 }
 
+/**
+ * The file by its headings of level 1–3 (a heading inside a fenced block is
+ * code, not a heading). Each section runs to the next heading of the same or
+ * a higher level, so a `##` holds its `###`s; what a `###` holds is counted
+ * in both. Text before the first heading is the preamble.
+ */
+export function sections(text: string): Section[] {
+  const lines = text.split('\n');
+  const headingAt: Array<{ line: number; level: number; heading: string }> = [];
+  let fenced = false;
+  for (const [index, line] of lines.entries()) {
+    if (/^\s*(```|~~~)/.test(line)) fenced = !fenced;
+    if (fenced) continue;
+    const match = /^(#{1,3})\s+(.+?)\s*#*\s*$/.exec(line);
+    if (match) headingAt.push({ line: index, level: match[1].length, heading: match[2] });
+  }
+  // Where each line starts in the text, so a section is a slice of the text itself.
+  const starts: number[] = [0];
+  for (const line of lines) starts.push(starts[starts.length - 1] + line.length + 1);
+  const measure = (from: number, to: number, heading: string | null, level: number): Section => {
+    const body = text.slice(starts[from], to < lines.length ? starts[to] : text.length);
+    let inFence = false;
+    let codeBlocks = 0;
+    let numberedSteps = 0;
+    for (const line of lines.slice(from, to)) {
+      if (/^\s*(```|~~~)/.test(line)) {
+        if (!inFence) codeBlocks += 1;
+        inFence = !inFence;
+        continue;
+      }
+      if (!inFence && /^\s*(\d+[.)]\s|- \[ \]\s)/.test(line)) numberedSteps += 1;
+    }
+    return { heading, level, bytes: Buffer.byteLength(body, 'utf8'), numberedSteps, codeBlocks, paths: referencedPaths(body) };
+  };
+  const result: Section[] = [];
+  const firstHeading = headingAt[0]?.line ?? lines.length;
+  if (headingAt.length === 0 || lines.slice(0, firstHeading).some((line) => line.trim() !== '')) {
+    const preamble = measure(0, firstHeading, null, 0);
+    if (preamble.bytes > 0) result.push(preamble);
+  }
+  for (const [index, start] of headingAt.entries()) {
+    const next = headingAt.slice(index + 1).find((candidate) => candidate.level <= start.level);
+    result.push(measure(start.line, next ? next.line : lines.length, start.heading, start.level));
+  }
+  return result;
+}
+
 function exists(path: string): boolean {
   try {
     statSync(path);
@@ -218,7 +282,7 @@ export function check(dir: string, options: CheckOptions = {}): Report {
       findings.push({ kind: 'dead-reference', message: `${ref} does not exist`, ref });
     }
 
-    return { path, bytes, chars, tokens: Math.ceil(chars / 4), findings };
+    return { path, bytes, chars, tokens: Math.ceil(chars / 4), findings, sections: sections(text) };
   });
 
   return {
