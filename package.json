@@ -11,7 +11,7 @@
   },
   "types": "./dist/index.d.ts",
   "bin": {
-    "agents-diet": "./dist/cli.js"
+    "agents-diet": "dist/cli.js"
   },
   "files": [
     "dist",
