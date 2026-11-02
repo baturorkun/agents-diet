@@ -17,12 +17,12 @@ then they cost more than they give, or they stop being read at all:
 
 ```sh
 npx agents-diet check            # measure and diagnose; changes nothing
-npx agents-diet install          # give your agent the method to shrink
+npx agents-diet init             # give your agent the method to shrink
 ```
 
 `check` tells you what is wrong. Shrinking takes judgement (is this section a
 rule for every session, a procedure, a design note, history?), so that is done
-by your own agent, Claude Code or Codex, following the skill `install` puts in
+by your own agent, Claude Code or Codex, following the skill `init` puts in
 place. agents-diet never calls a model itself.
 
 ## check
@@ -65,11 +65,11 @@ Each file is also broken down by heading (`--json`: `files[].sections`, with
 report lists the sections over 1 KiB, largest first. That is what the skill
 works from when it decides what to move.
 
-## install
+## init
 
 ```sh
-npx agents-diet install          # .claude/skills/agents-diet/SKILL.md
-npx agents-diet install --codex  # .codex/skills/agents-diet/SKILL.md too
+npx agents-diet init             # .claude/skills/agents-diet/SKILL.md
+npx agents-diet init --codex     # .codex/skills/agents-diet/SKILL.md too
 ```
 
 Then ask your agent: *"put AGENTS.md on a diet"*. Following the skill it:
@@ -90,7 +90,7 @@ Then ask your agent: *"put AGENTS.md on a diet"*. Following the skill it:
 It never invents a rule, changes a rule's meaning, deletes what it does not
 understand, writes outside the project without asking, or commits.
 
-A copy you edited is kept on the next `install` (`--force` replaces it); a copy
+A copy you edited is kept on the next `init` (`--force` replaces it); a copy
 from an earlier agents-diet is updated.
 
 ## Settings
@@ -112,13 +112,13 @@ In `package.json`, or the same keys in `.agents-diet.json`:
 ## Library
 
 ```js
-import { check, install } from 'agents-diet';
+import { check, init } from 'agents-diet';
 
 const report = check('.', { maxBytes: 16384 });
 console.log(report.summary); // { files, bytes, findings }
 console.log(report.files[0].sections.map((s) => [s.heading, s.bytes]));
 
-install('.', { targets: ['claude'] }); // what the CLI's install does
+init('.', { targets: ['claude'] }); // what the CLI's init does
 ```
 
 `check` returns what `--json` prints. No runtime dependencies; Node 20 or later.
