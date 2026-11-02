@@ -13,9 +13,9 @@
       }
     ]
   },
-  "status": "passed",
+  "status": "approved",
   "createdAt": "2026-11-02T19:06:15.002Z",
-  "updatedAt": "2026-11-02T19:06:31.226Z",
+  "updatedAt": "2026-11-02T19:12:08.041Z",
   "steps": [
     {
       "agent": "handoff",
@@ -60,5 +60,7 @@
     "tool": "claude-code",
     "model": "claude-fable-5-1",
     "prompt": "Implement RQ-0003: rename the install command to init."
-  }
+  },
+  "approvedAt": "2026-11-02T19:12:08.046Z",
+  "approvedBy": "human"
 }
