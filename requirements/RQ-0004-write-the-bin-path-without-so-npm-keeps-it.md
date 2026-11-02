@@ -1,6 +1,6 @@
 ---
 id: RQ-0004
-status: ready
+status: completed
 executionMode: handoff
 pipelineFast: false
 createdByName: "Batur Orkun"
@@ -8,6 +8,9 @@ createdByEmail: "batur@bc.int"
 createdAt: "2026-11-02T20:43:49.579Z"
 branch: "factory/RQ-0004"
 createdFromCommit: "c8c0dfd3c87882346621c9099902001d23cccc63"
+completedRunId: "20261102204453-RQ-0004"
+completedBy: "human"
+completedAt: "2026-11-02T20:50:49.006Z"
 githubPullRequestUrl: "https://github.com/baturorkun/agents-diet/pull/8"
 githubPullRequestIid: 8
 githubIssueUrl: "https://github.com/baturorkun/agents-diet/issues/7"
