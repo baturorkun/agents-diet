@@ -13,9 +13,9 @@
       }
     ]
   },
-  "status": "passed",
+  "status": "approved",
   "createdAt": "2026-11-02T13:32:41.090Z",
-  "updatedAt": "2026-11-02T13:42:05.053Z",
+  "updatedAt": "2026-11-02T18:45:12.193Z",
   "steps": [
     {
       "agent": "handoff",
@@ -63,5 +63,7 @@
     "tool": "claude-code",
     "model": "claude-fable-5-1",
     "prompt": "Implement RQ-0002: the agents-diet skill, install, and per-section measurements in check."
-  }
+  },
+  "approvedAt": "2026-11-02T18:45:12.194Z",
+  "approvedBy": "human"
 }
