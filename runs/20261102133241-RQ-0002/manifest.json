@@ -1,0 +1,67 @@
+{
+  "runId": "20261102133241-RQ-0002",
+  "requirementId": "RQ-0002",
+  "executionMode": "handoff",
+  "fast": false,
+  "handoffPath": "handoffs/20261102133241-RQ-0002/handoff.md",
+  "projectGuidelines": {
+    "combinedSha256": "a6fff543109000792556a4dd4ca0d42fb107e25c07f0486541a2212d8e6e25cb",
+    "files": [
+      {
+        "path": "AGENTS.md",
+        "sha256": "0f5c034ad64d864da6cd44a4ca4b2bf26017412cd5d15a73bae029a96f64ca1d"
+      }
+    ]
+  },
+  "status": "passed",
+  "createdAt": "2026-11-02T13:32:41.090Z",
+  "updatedAt": "2026-11-02T13:42:05.053Z",
+  "steps": [
+    {
+      "agent": "handoff",
+      "status": "passed",
+      "startedAt": "2026-11-02T13:42:00.036Z",
+      "finishedAt": "2026-11-02T13:42:05.052Z",
+      "retries": 0
+    }
+  ],
+  "artifacts": [
+    "README.md",
+    "package.json",
+    "skill/SKILL.md",
+    "src/check.ts",
+    "src/cli.ts",
+    "src/index.ts",
+    "src/install.ts",
+    "tests/cli.test.mjs",
+    "tests/install.test.mjs",
+    "tests/sections.test.mjs"
+  ],
+  "deletedFiles": [],
+  "gateResults": {
+    "schemaCheck": "passed",
+    "build": "passed",
+    "typeCheck": "passed",
+    "lint": "skipped",
+    "tests": "passed",
+    "security": "passed",
+    "templateCheck": "passed"
+  },
+  "attempts": [
+    {
+      "number": 1,
+      "at": "2026-11-02T13:42:05.053Z",
+      "status": "passed",
+      "tool": "claude-code",
+      "model": "claude-fable-5-1",
+      "failedGates": [],
+      "changedFiles": 10,
+      "note": "Manual trial (acceptance): neutral fixture 'shopfront' with history, a deploy procedure, a design section, a shared policy block, no CLAUDE.md, 3 dead refs. A fresh claude -p session with the installed skill: AGENTS.md 2648 -> 1086 bytes, findings 4 -> 1 (dist/, a build dir named in the deploy step), CLAUDE.md created with @AGENTS.md, cart rules moved to docs/cart.md with one pointer line, policy block parked in GLOBAL-PROPOSED.md (writing outside the project was forbidden for the run), history deleted with the live fact (port 8080) kept, legacy/ refs dropped. Formatting kept: the agent saw the Prettier/ESLint configs were empty, so the rule is not enforced anywhere. The deploy procedure stayed in place: writing .claude/skills/ needs a permission the non-interactive run could not grant; the agent printed the ready SKILL.md instead. No rule lost; nothing committed; ~/.claude/CLAUDE.md unchanged (hash checked)."
+    }
+  ],
+  "implementedBy": {
+    "tool": "claude-code",
+    "model": "claude-fable-5-1",
+    "prompt": "Implement RQ-0002: the agents-diet skill, install, and per-section measurements in check."
+  }
+}
