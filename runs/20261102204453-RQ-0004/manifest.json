@@ -13,9 +13,9 @@
       }
     ]
   },
-  "status": "passed",
+  "status": "approved",
   "createdAt": "2026-11-02T20:44:53.856Z",
-  "updatedAt": "2026-11-02T20:45:55.628Z",
+  "updatedAt": "2026-11-02T20:47:46.510Z",
   "steps": [
     {
       "agent": "handoff",
@@ -47,5 +47,7 @@
       "failedGates": [],
       "changedFiles": 2
     }
-  ]
+  ],
+  "approvedAt": "2026-11-02T20:47:46.516Z",
+  "approvedBy": "human"
 }
