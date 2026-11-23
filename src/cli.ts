@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { check, UsageError, type Report } from './check.js';
 import { init, type InitTarget } from './init.js';
+import { detectNotifyTools, formatNotice, installNotify, notifyMessage, NOTIFY_TOOLS, parseTools, removeNotify, type NotifyFormat } from './notify.js';
 import { parseSections, rewriteApply, rewriteCheck, rewriteDiscard, type RewriteReport } from './rewrite.js';
 
 const HELP = `Usage: agents-diet <command> [options]
@@ -14,7 +15,9 @@ Commands:
   init [dir]           Put the agents-diet skill into the project, so its agent
                        knows how to shrink the files: .agents/skills/agents-diet/
                        (Codex, Gemini CLI, Antigravity, Cursor, GitHub Copilot)
-                       and .claude/skills/agents-diet/ (Claude Code).
+                       and .claude/skills/agents-diet/ (Claude Code). Adds a
+                       session-start hook for the tools the project uses: at
+                       the size limit it suggests shrinking, never starts it.
   rewrite check <file> <candidate>
                        Compare a rewrite candidate with the file, section by
                        section, against the rewrite limits. Changes nothing.
@@ -27,11 +30,20 @@ Options for check:
   --max-bytes <n>      The size limit per file (else package.json
                        "agents-diet".maxBytes, .agents-diet.json, or 32768)
   --json               Print the report as JSON
+  --notify             Only suggest shrinking when a file reached the limit:
+                       silent under it, always exits 0, changes nothing
+  --format <tool>      Output for --notify: text (default), claude, codex,
+                       gemini, antigravity, cursor, copilot
 
 Options for init:
   --agents, --claude   Install in that location only (default: both)
   --codex              Same as --agents: Codex reads .agents/skills/
   --force              Replace a copy of the skill someone changed
+  --notify-for <tools> Add the size-limit hook for these tools instead of the
+                       ones detected, e.g. claude,cursor or all
+  --no-notify          Do not add the size-limit hook
+  --remove-notify <tools>
+                       Remove that hook; installs nothing
 
 Settings (package.json "agents-diet", else .agents-diet.json):
   maxBytes             the size limit per file
@@ -113,6 +125,11 @@ function main(argv: string[]): number {
         codex: { type: 'boolean' },
         force: { type: 'boolean' },
         sections: { type: 'string' },
+        notify: { type: 'boolean' },
+        format: { type: 'string' },
+        'notify-for': { type: 'string' },
+        'no-notify': { type: 'boolean' },
+        'remove-notify': { type: 'string' },
       },
     });
   } catch (error) {
@@ -136,7 +153,7 @@ function main(argv: string[]): number {
   }
   if (command === 'rewrite') {
     try {
-      for (const option of ['max-bytes', 'agents', 'claude', 'codex', 'force'] as const) {
+      for (const option of ['max-bytes', 'agents', 'claude', 'codex', 'force', 'notify', 'format', 'notify-for', 'no-notify', 'remove-notify'] as const) {
         if (values[option] !== undefined) throw new UsageError(`--${option} does not apply to rewrite`);
       }
       return runRewrite(positionals.slice(1), values.json, values.sections);
@@ -159,24 +176,53 @@ function main(argv: string[]): number {
   }
   try {
     if (command === 'init') {
-      for (const [option, forCommand] of [['json', 'check'], ['max-bytes', 'check']] as const) {
+      for (const [option, forCommand] of [['json', 'check'], ['max-bytes', 'check'], ['notify', 'check'], ['format', 'check']] as const) {
         if (values[option] !== undefined) throw new UsageError(`--${option} applies to ${forCommand}, not init`);
       }
+      if (values['remove-notify'] !== undefined) {
+        if (values['notify-for'] !== undefined || values['no-notify']) throw new UsageError('--remove-notify cannot be used with --notify-for or --no-notify');
+        for (const result of removeNotify(dir, parseTools(values['remove-notify']))) console.log(`${result.outcome === 'removed' ? 'removed hook' : 'no hook'}  ${result.path}`);
+        return 0;
+      }
+      // Parsed and validated before the skill is written, so a bad option changes nothing.
+      if (values['notify-for'] !== undefined && values['no-notify']) throw new UsageError('--notify-for and --no-notify cannot be used together');
+      const namedTools = values['notify-for'] === undefined ? null : parseTools(values['notify-for']);
       // --codex is kept from 0.1.0, where it installed into .codex/skills/; Codex reads .agents/skills/.
       const targets: InitTarget[] = [...(values.agents || values.codex ? ['agents' as const] : []), ...(values.claude ? ['claude' as const] : [])];
+      // Detected before the skill is written: init itself creates .claude and .agents.
+      const notifyTools = values['no-notify'] ? [] : (namedTools ?? detectNotifyTools(dir, targets));
       const results = init(dir, { targets, force: values.force });
       for (const result of results) {
         const said = result.outcome === 'written' ? 'wrote' : result.outcome === 'current' ? 'already current' : 'kept (changed here; --force replaces it)';
         console.log(`${said}  ${result.path}`);
       }
+      // A named tool with a bad config is an error; a detected one is reported and the install stands.
+      for (const result of installNotify(dir, notifyTools, { skipInvalid: namedTools === null })) {
+        const said = result.outcome === 'added' ? 'added hook' : result.outcome === 'skipped' ? `hook not added (${result.reason})` : 'hook already there';
+        console.log(`${said}  ${result.path}`);
+      }
       return 0;
     }
-    for (const option of ['agents', 'claude', 'codex', 'force'] as const) {
+    for (const option of ['agents', 'claude', 'codex', 'force', 'notify-for', 'no-notify', 'remove-notify'] as const) {
       if (values[option]) throw new UsageError(`--${option} applies to init, not check`);
     }
+    const format = (values.format ?? 'text') as NotifyFormat;
+    if (values.format !== undefined && !values.notify) throw new UsageError('--format applies to --notify');
+    if (!['text', ...NOTIFY_TOOLS].includes(format)) throw new UsageError(`--format: unknown format ${format}`);
+    if (values.notify && values.json) throw new UsageError('--notify and --json cannot be used together');
     const raw = values['max-bytes'];
     const maxBytes = raw === undefined ? undefined : /^\d+$/.test(raw) ? Number(raw) : Number.NaN;
     if (maxBytes !== undefined && Number.isNaN(maxBytes)) throw new UsageError(`--max-bytes: the limit must be a positive integer, not "${raw}"`);
+    if (values.notify) {
+      // Runs at session start: a broken project or setting must never block it.
+      try {
+        const message = notifyMessage(check(dir, { maxBytes }));
+        if (message) console.log(formatNotice(format, message));
+      } catch {
+        /* say nothing */
+      }
+      return 0;
+    }
     const report = check(dir, { maxBytes });
     console.log(values.json ? JSON.stringify(report, null, 2) : human(report));
     return report.summary.errors === 0 ? 0 : 1;

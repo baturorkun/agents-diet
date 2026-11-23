@@ -110,6 +110,26 @@ understand, writes outside the project without asking, or commits.
 A copy you edited is kept on the next `init` (`--force` replaces it); a copy
 from an earlier agents-diet is updated.
 
+### Suggest shrinking at the limit
+
+`init` also adds a session-start hook for the tools the project already uses
+(`.claude/`, `.codex/`, `.gemini/` or `GEMINI.md`, `.cursor/`, `.github/hooks/`
+or `.github/copilot-instructions.md`, and Antigravity's `.agents/hooks.json`,
+`.agents/rules/` or `.agent/`). With none of them, it adds the Claude Code hook.
+It prints each hook it adds and keeps your existing settings.
+
+```sh
+npx agents-diet init --no-notify                  # no hook
+npx agents-diet init --notify-for claude,cursor   # these tools (or: all)
+npx agents-diet init --remove-notify claude,cursor
+```
+
+The hook runs `agents-diet check --notify`. When a file reaches the limit, the
+agent tells you once and suggests a diet. It **never starts the shrink**, changes
+no file, and cannot block a session. It needs `agents-diet` installed in the
+project or globally; without it the hook does nothing. Codex asks you to trust a
+new hook first.
+
 ## Settings
 
 In `package.json`, or the same keys in `.agents-diet.json`:
