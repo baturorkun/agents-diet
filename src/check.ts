@@ -16,10 +16,21 @@ const FILE_EXTENSIONS = new Set(
     'ts tsx mts cts js jsx mjs cjs py sh bash ps1 bat go rs java kt swift c h cc cpp hpp cs rb php sql ' +
     'css scss html xml svg png jpg pdf tcl xdc vhd vhdl sv repl resc dml').split(' '),
 );
+// A path starting with one of these is the system's, not the project's (`/etc/hosts`, `/usr/bin`).
+const SYSTEM_ROOTS = new Set(
+  'usr etc tmp var opt home Users dev proc sys private root mnt srv Library System Applications Volumes'.split(' '),
+);
 // Characters a path in these files does not carry: `pkg>=1.2`, `user@host:/dir`, `f(x)`.
 const NOT_A_PATH = /[@:=<>(),'"|!?;]/;
 
-export type FindingKind = 'over-limit' | 'over-limit-combined' | 'missing-claude-md' | 'no-agents-import' | 'no-gemini-import' | 'dead-reference';
+export type FindingKind =
+  | 'over-limit'
+  | 'over-limit-combined'
+  | 'missing-claude-md'
+  | 'no-agents-import'
+  | 'no-gemini-import'
+  | 'dead-reference'
+  | 'reference-elsewhere';
 
 /** error: the agent misses or loses instructions; warning: it may, depending on the agent or its version. */
 export type Severity = 'error' | 'warning';
@@ -28,8 +39,10 @@ export interface Finding {
   kind: FindingKind;
   severity: Severity;
   message: string;
-  /** The path a dead reference names, as written. */
+  /** The path a dead-reference or reference-elsewhere names, as written. */
   ref?: string;
+  /** reference-elsewhere: where the path exists in the project (up to 3), relative to the root with `/`; a directory ends in `/`. */
+  locations?: string[];
 }
 
 /** A heading of level 1–3 and what stands under it, up to the next heading of its level or higher. */
@@ -163,8 +176,23 @@ export function findInstructionFiles(root: string, files: string[] = projectFile
   });
 }
 
-/** The paths a file names: markdown link targets and inline code spans that look like a path. */
-export function referencedPaths(text: string): string[] {
+/**
+ * A path written with a leading `/` that names a place in the project, not in
+ * the file system (`/parsers/`, `/scripts/`): its first segment is not a
+ * system directory such as `/usr`, `/etc`, `/tmp`, `/home` or `/Users`.
+ */
+function projectRooted(path: string): boolean {
+  if (!path.startsWith('/') || path.startsWith('//')) return false;
+  const first = path.split('/').filter(Boolean)[0];
+  return first !== undefined && !SYSTEM_ROOTS.has(first);
+}
+
+/**
+ * The paths a file names: markdown link targets and inline code spans that
+ * look like a path. With `rooted`, also paths written with a leading `/` that
+ * are not system paths (`/parsers/`), which check resolves against the project.
+ */
+export function referencedPaths(text: string, rooted = false): string[] {
   const candidates: string[] = [];
   for (const match of text.matchAll(/\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g)) candidates.push(match[1]);
   for (const match of text.matchAll(/(?<!`)`([^`\n]+)`(?!`)/g)) {
@@ -179,7 +207,7 @@ export function referencedPaths(text: string): string[] {
   for (const match of text.matchAll(/^\s*@(\S+)\s*$/gm)) candidates.push(match[1]);
   const paths = candidates
     .filter((path) => !/^[a-z][a-z0-9+.-]*:/i.test(path) && !path.startsWith('#'))
-    .filter((path) => !isAbsolute(path) && !path.startsWith('~') && !/[*<{$]/.test(path))
+    .filter((path) => (!isAbsolute(path) || (rooted && projectRooted(path))) && !path.startsWith('~') && !/[*<{$]/.test(path))
     .map((path) => path.replace(/#.*$/, '').replace(/:\d+(?::\d+)?$/, '').replace(/[.,;:]+$/, ''))
     .filter((path) => path !== '' && !path.split('/').includes('node_modules'));
   return [...new Set(paths)];
@@ -232,6 +260,54 @@ export function sections(text: string): Section[] {
   return result;
 }
 
+/**
+ * Where a path may sit in the project when it is not at the place written:
+ * every file and directory, found by its last segment. Built once per check.
+ */
+interface PathIndex {
+  files: Map<string, string[]>;
+  directories: Map<string, string[]>;
+}
+
+function indexPaths(files: string[]): PathIndex {
+  const index: PathIndex = { files: new Map(), directories: new Map() };
+  const add = (map: Map<string, string[]>, path: string) => {
+    const name = path.slice(path.lastIndexOf('/') + 1);
+    const list = map.get(name);
+    if (list) list.push(path);
+    else map.set(name, [path]);
+  };
+  const seen = new Set<string>();
+  for (const file of files) {
+    add(index.files, file);
+    for (let at = file.indexOf('/'); at !== -1; at = file.indexOf('/', at + 1)) {
+      const directory = file.slice(0, at);
+      if (!seen.has(directory)) {
+        seen.add(directory);
+        add(index.directories, directory);
+      }
+    }
+  }
+  return index;
+}
+
+/**
+ * The places in the project whose path ends with the written one
+ * (`a/b/c.ts` → `pkg/x/a/b/c.ts`); only directories when it ends in `/`.
+ * Leading `./`, `../` and `/` are dropped. Directories come back with a
+ * trailing `/`.
+ */
+function findBySuffix(index: PathIndex, ref: string): string[] {
+  const directoryOnly = ref.endsWith('/');
+  const suffix = ref.replace(/^(\.{1,2}\/|\/)+/, '').replace(/\/+$/, '');
+  if (suffix === '' || suffix.split('/').some((segment) => segment === '..' || segment === '.' || segment === '')) return [];
+  const name = suffix.slice(suffix.lastIndexOf('/') + 1);
+  const ends = (path: string) => path === suffix || path.endsWith('/' + suffix);
+  const directories = (index.directories.get(name) ?? []).filter(ends).map((path) => path + '/');
+  const files = directoryOnly ? [] : (index.files.get(name) ?? []).filter(ends);
+  return [...files, ...directories].sort();
+}
+
 function exists(path: string): boolean {
   try {
     statSync(path);
@@ -272,6 +348,7 @@ export function check(dir: string, options: CheckOptions = {}): Report {
   const fileName = (geminiSettings?.context as { fileName?: unknown } | undefined)?.fileName ?? geminiSettings?.contextFileName;
   const geminiReadsAgents = [fileName].flat().includes('AGENTS.md');
   const names = new Set(all.map((path) => path.split('/').pop()));
+  let pathIndex: PathIndex | undefined;
 
   const files = paths.map((path): FileReport => {
     const absolute = join(root, path);
@@ -311,20 +388,34 @@ export function check(dir: string, options: CheckOptions = {}): Report {
       }
     }
 
+    // RQ-L06: a path is looked for, in this order, relative to the file, relative to the project root,
+    // and (written with a leading `/`) relative to the project root; a bare file name anywhere in the project.
     const base = dirname(absolute);
-    const missing = referencedPaths(text).filter((ref) => {
+    const written = (ref: string) => (ref.startsWith('/') ? ref.replace(/^\/+/, '') : relative(root, resolve(base, ref)).split(sep).join('/'));
+    const unresolved = referencedPaths(text, true).filter((ref) => {
+      if (ref.startsWith('/')) return !exists(resolve(root, ref.replace(/^\/+/, '')));
       if (exists(resolve(base, ref)) || exists(resolve(root, ref))) return false;
       // A file named without a directory may live anywhere in the project.
       return ref.includes('/') || !names.has(ref);
     });
     // What Git ignores is generated (build output, reports): named, not kept.
-    const ignored = new Set(
-      (git(root, ['check-ignore', '--stdin'], missing.map((ref) => relative(root, resolve(base, ref)).split(sep).join('/')).join('\n')) ?? '').split('\n').filter(Boolean),
-    );
-    for (const ref of missing) {
-      const fromRoot = relative(root, resolve(base, ref)).split(sep).join('/');
+    const ignored = new Set((git(root, ['check-ignore', '--stdin'], unresolved.map(written).join('\n')) ?? '').split('\n').filter(Boolean));
+    for (const ref of unresolved) {
+      const fromRoot = written(ref);
       if (ignored.has(fromRoot) || under(fromRoot, ignore) || under(ref.replace(/^\.\//, ''), ignore)) continue;
-      findings.push({ kind: 'dead-reference', severity: 'error', message: `${ref} does not exist`, ref });
+      // Then anywhere in the project as the end of a path: written relative to a package or module.
+      pathIndex ??= indexPaths(all);
+      const found = findBySuffix(pathIndex, ref);
+      if (found.length === 1) {
+        findings.push({ kind: 'reference-elsewhere', severity: 'warning', message: `${ref} exists at ${found[0]}; the written path is relative to a package or subdirectory`, ref, locations: found });
+      } else if (found.length > 1) {
+        const shown = found.slice(0, 3);
+        const more = found.length > 3 ? ` and ${found.length - 3} more` : '';
+        findings.push({ kind: 'reference-elsewhere', severity: 'warning', message: `${ref} exists in ${found.length} places (${shown.join(', ')}${more}); the written path does not say which`, ref, locations: shown });
+      } else if (!ref.startsWith('/')) {
+        // A path with a leading `/` found nowhere is left alone: it is as often a URL route (`/api/users`) as a file.
+        findings.push({ kind: 'dead-reference', severity: 'error', message: `${ref} does not exist`, ref });
+      }
     }
 
     return { path, bytes, chars, tokens: Math.ceil(chars / 4), findings, sections: sections(text) };
