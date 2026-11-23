@@ -1,4 +1,5 @@
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { UsageError } from './check.js';
@@ -32,6 +33,28 @@ export interface InitResult {
 }
 
 const VERSION_LINE = /^agents-diet-version:\s*(\S+)\s*$/m;
+/** Beside each installed skill: what init wrote, so an unedited copy can be told from an edited one. */
+export const SKILL_MANIFEST = '.agents-diet-manifest.json';
+
+const sha256 = (path: string): string => createHash('sha256').update(readFileSync(path)).digest('hex');
+
+/** The recorded files, or null when there is no usable manifest. Paths leaving the folder are not trusted. */
+function readManifest(skillDir: string): Record<string, string> | null {
+  try {
+    const files = (JSON.parse(readFileSync(join(skillDir, SKILL_MANIFEST), 'utf8')) as { files?: unknown }).files;
+    if (typeof files !== 'object' || files === null || Array.isArray(files)) return null;
+    const entries = Object.entries(files);
+    const safe = entries.every(([file, hash]) => typeof hash === 'string' && /^[0-9a-f]{64}$/.test(hash) && resolve(skillDir, file).startsWith(resolve(skillDir) + sep));
+    return safe && entries.length > 0 ? (files as Record<string, string>) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeManifest(skillDir: string, version: string, shipped: string[]): void {
+  const files = Object.fromEntries(shipped.map((file) => [file, sha256(join(skillDir, file))]));
+  writeFileSync(join(skillDir, SKILL_MANIFEST), `${JSON.stringify({ version, files }, null, 2)}\n`);
+}
 
 /** The skill as the package ships it: skill/ beside dist/, SKILL.md and everything under it (references/). */
 export function packagedSkill(): { dir: string; text: string; version: string; files: string[] } {
@@ -73,16 +96,29 @@ export function init(dir: string, options: InitOptions = {}): InitResult[] {
     if (existsSync(path)) {
       const existing = readFileSync(path, 'utf8');
       const referencesCurrent = skill.files.every((file) => existsSync(join(skillDir, file)) && readFileSync(join(skillDir, file), 'utf8') === readFileSync(join(skill.dir, file), 'utf8'));
-      if (existing === skill.text && referencesCurrent) return { target, path: relativePath, outcome: 'current' };
+      if (existing === skill.text && referencesCurrent) {
+        if (!readManifest(skillDir)) writeManifest(skillDir, skill.version, skill.files);
+        return { target, path: relativePath, outcome: 'current' };
+      }
+      const manifest = readManifest(skillDir);
       const theirs = VERSION_LINE.exec(existing)?.[1];
-      // Ours, an earlier version (or this one with references missing): replaced. Theirs, or ours and edited: kept.
-      const ours = theirs !== undefined && existing === skill.text.replace(VERSION_LINE, `agents-diet-version: ${theirs}`);
-      if (!ours && !options.force) return { target, path: relativePath, outcome: 'kept' };
+      // With a manifest: unedited when every file still there matches it (a missing one is restored).
+      // Without one (an install before RQ-L10): ours only if nothing but the version line differs.
+      const unedited = manifest
+        ? Object.entries(manifest).every(([file, hash]) => !existsSync(join(skillDir, file)) || sha256(join(skillDir, file)) === hash)
+        : theirs !== undefined && existing === skill.text.replace(VERSION_LINE, `agents-diet-version: ${theirs}`);
+      if (!unedited && !options.force) return { target, path: relativePath, outcome: 'kept' };
+      // A file an earlier version shipped and this one does not: removed only if it is unedited.
+      for (const [file, hash] of Object.entries(manifest ?? {})) {
+        const old = join(skillDir, file);
+        if (!skill.files.includes(file) && existsSync(old) && sha256(old) === hash) rmSync(old);
+      }
     }
     for (const file of skill.files) {
       mkdirSync(dirname(join(skillDir, file)), { recursive: true });
       writeFileSync(join(skillDir, file), readFileSync(join(skill.dir, file)));
     }
+    writeManifest(skillDir, skill.version, skill.files);
     return { target, path: relativePath, outcome: 'written' };
   });
 }

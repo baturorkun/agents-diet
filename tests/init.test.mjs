@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
-import { init, SKILL_RELATIVE_PATHS, UsageError } from '../dist/index.js';
+import { init, SKILL_MANIFEST, SKILL_RELATIVE_PATHS, UsageError } from '../dist/index.js';
 import { withProject } from './helpers.mjs';
 
 const skill = readFileSync('skill/SKILL.md', 'utf8');
@@ -120,4 +121,72 @@ test('init from the CLI: says what it did, exits 2 on usage errors; install is n
   assert.equal(cli('check', '.', '--force').status, 2);
   assert.equal(cli('check', '.', '--agents').status, 2);
   assert.throws(() => init('/no/such/agents-diet/dir'), UsageError);
+});
+
+// RQ-L10: the README's promise. An unedited older copy is updated; an edited one is kept.
+const older = (root, target = 'claude') => {
+  const dir = dirname(join(root, SKILL_RELATIVE_PATHS[target]));
+  const manifestPath = join(dir, SKILL_MANIFEST);
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  const text = `${skill}\nAn instruction from an earlier version.\n`.replace(/^agents-diet-version: .*$/m, 'agents-diet-version: 0.0.1');
+  writeFileSync(join(dir, 'SKILL.md'), text);
+  writeFileSync(join(dir, 'references/old.md'), 'shipped earlier\n');
+  manifest.files['SKILL.md'] = createHash('sha256').update(text).digest('hex');
+  manifest.files['references/old.md'] = createHash('sha256').update('shipped earlier\n').digest('hex');
+  writeFileSync(manifestPath, JSON.stringify(manifest));
+  return dir;
+};
+
+test('an unedited older copy is updated without --force; a file it no longer ships goes', () => {
+  withProject({}, (root) => {
+    init(root, { targets: ['claude'] });
+    const dir = older(root);
+    writeFileSync(join(dir, 'references/mine.md'), 'added by the user\n');
+    assert.equal(init(root, { targets: ['claude'] })[0].outcome, 'written');
+    assert.equal(readFileSync(join(dir, 'SKILL.md'), 'utf8'), skill);
+    assert.ok(!existsSync(join(dir, 'references/old.md')));
+    assert.equal(readFileSync(join(dir, 'references/mine.md'), 'utf8'), 'added by the user\n');
+    assert.equal(init(root, { targets: ['claude'] })[0].outcome, 'current');
+  });
+});
+
+test('an edited skill or reference is kept; --force replaces it', () => {
+  for (const file of ['SKILL.md', 'references/examples.md']) {
+    withProject({}, (root) => {
+      init(root, { targets: ['claude'] });
+      const dir = older(root);
+      writeFileSync(join(dir, file), 'edited here\n');
+      assert.equal(init(root, { targets: ['claude'] })[0].outcome, 'kept', file);
+      assert.equal(readFileSync(join(dir, file), 'utf8'), 'edited here\n');
+      assert.equal(init(root, { targets: ['claude'], force: true })[0].outcome, 'written');
+      assert.equal(readFileSync(join(dir, 'SKILL.md'), 'utf8'), skill);
+    });
+  }
+});
+
+test('a copy from before the manifest with other text is kept; a current one gets a manifest', () => {
+  withProject({}, (root) => {
+    const path = join(root, SKILL_RELATIVE_PATHS.claude);
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, `${skill}\nolder text\n`.replace(/^agents-diet-version: .*$/m, 'agents-diet-version: 0.0.1'));
+    assert.equal(init(root, { targets: ['claude'] })[0].outcome, 'kept');
+    assert.ok(!existsSync(join(dirname(path), SKILL_MANIFEST)));
+    init(root, { targets: ['claude'], force: true });
+    rmSync(join(dirname(path), SKILL_MANIFEST));
+    assert.equal(init(root, { targets: ['claude'] })[0].outcome, 'current');
+    assert.ok(existsSync(join(dirname(path), SKILL_MANIFEST)));
+  });
+});
+
+test('a manifest pointing outside the skill folder is not trusted and deletes nothing', () => {
+  withProject({ 'outside.md': 'keep me\n' }, (root) => {
+    init(root, { targets: ['claude'] });
+    const dir = dirname(join(root, SKILL_RELATIVE_PATHS.claude));
+    const hash = createHash('sha256').update('keep me\n').digest('hex');
+    writeFileSync(join(dir, SKILL_MANIFEST), JSON.stringify({ files: { '../../../outside.md': hash } }));
+    writeFileSync(join(dir, 'SKILL.md'), 'edited\n');
+    assert.equal(init(root, { targets: ['claude'] })[0].outcome, 'kept');
+    init(root, { targets: ['claude'], force: true });
+    assert.equal(readFileSync(join(root, 'outside.md'), 'utf8'), 'keep me\n');
+  });
 });
