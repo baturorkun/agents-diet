@@ -13,7 +13,7 @@ The goal is that the agent loads, finds and follows each rule when a task needs 
 ## Limits
 
 - If `CLAUDE.md` or `AGENTS.md` is missing you may create it. If it exists, edit it; never write it again from scratch.
-- Move text word for word. Never shorten, summarise, merge, reformat or reword a rule, whether you move it or leave it. Rewording needs the user's approval.
+- Move text word for word. Never shorten, summarise, merge, reformat or reword a rule, whether you move it or leave it. The only exception is step 7, after the user's explicit yes.
 - Never invent a rule, and never change a rule's meaning.
 - Never delete a rule you do not understand. Ask, or leave it in place.
 - Change only instruction files, and create only new skills (`.agents/skills/<name>/` and `.claude/skills/<name>/`) and new docs (`agents-docs/<topic>.md`). Never add a new document to an existing `docs/` folder, and never touch code or other files.
@@ -94,3 +94,9 @@ Run `npx agents-diet check --json` again, then report:
 Label every change as one of: moved word for word, duplicate removed, corrected (name the current source: a file, a config), or deleted (and why). Report the bytes as a measurement, not as an achievement. Stop when the checks are done.
 
 Leave the changes uncommitted for the user to review.
+
+## 7. Offer a rewrite
+
+Only with a person in the session, and only after the report. Ask one question: "Shall we rewrite?" Ask it also when everything follows the rules and nothing got smaller. Say that commands, paths, numbers and prohibitions will not change, and that each section is shown before it is applied. Without an explicit yes, change nothing. In an unattended run, skip this step and never rewrite.
+
+On yes, read `references/rewrite.md` and follow it.

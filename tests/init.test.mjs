@@ -16,7 +16,7 @@ test('the shipped skill names itself, triggers on shrinking, and carries the pac
   assert.match(frontmatter, /^description: .*(shrink|smaller).*$/m);
   assert.match(frontmatter, new RegExp(`^agents-diet-version: ${version.replace(/\./g, '\\.')}$`, 'm'), 'bump agents-diet-version in skill/SKILL.md with package.json');
   // The limits first, then the six steps in the order they run (RQ-L01).
-  for (const heading of ['## Limits', '## 1. Measure', '## 2. Fix what is broken', '## 3. Classify every section', '## 4. Ask before you change', '## 5. Apply', '## 6. Report']) {
+  for (const heading of ['## Limits', '## 1. Measure', '## 2. Fix what is broken', '## 3. Classify every section', '## 4. Ask before you change', '## 5. Apply', '## 6. Report', '## 7. Offer a rewrite']) {
     assert.ok(skill.includes(`\n${heading}\n`), heading);
   }
   assert.ok(skill.indexOf('## Limits') < skill.indexOf('## 1. Measure'), 'the limits come first');
@@ -29,8 +29,12 @@ test('the shipped skill names itself, triggers on shrinking, and carries the pac
   assert.match(skill, /`agents-docs\/<topic>\.md`/);
   assert.match(skill, /Never add a new document to an existing `docs\/` folder/);
   for (const text of [skill, readFileSync('skill/references/examples.md', 'utf8')]) assert.doesNotMatch(text, /(?<![-\w])docs\/(<topic>|billing-export)\.md/);
+  // Rewrite is offered at the end, only on a yes, never unattended (RQ-L08).
+  assert.match(skill, /Shall we rewrite\?/);
+  assert.match(skill, /Without an explicit yes, change nothing/);
+  assert.match(skill, /In an unattended run, skip this step and never rewrite/);
   // The references the skill points to ship with it.
-  for (const reference of ['references/examples.md', 'references/anti-patterns.md']) {
+  for (const reference of ['references/examples.md', 'references/anti-patterns.md', 'references/rewrite.md']) {
     assert.ok(skill.includes(reference), reference);
     assert.ok(existsSync(join('skill', reference)), `skill/${reference} exists`);
   }

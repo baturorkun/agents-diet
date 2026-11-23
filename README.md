@@ -98,6 +98,11 @@ Then ask your agent: *"put AGENTS.md on a diet"*. Following the skill it:
    left behind; what stays is not reworded;
 6. measures again and reports before/after, what moved where, what was deleted
    and why, and its questions, leaving the changes uncommitted for you.
+7. asks at the end whether to rewrite. Only on your yes, and never unattended,
+   it shortens wording section by section: commands, paths, numbers,
+   prohibitions, conditions and order stay. `agents-diet rewrite check` rejects
+   a section that lost one of them, shrank over 30% or saves under 100 bytes;
+   you pick which accepted sections `agents-diet rewrite apply` writes.
 
 It never invents a rule, changes a rule's meaning, deletes what it does not
 understand, writes outside the project without asking, or commits.
