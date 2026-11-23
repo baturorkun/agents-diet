@@ -1,6 +1,6 @@
 ---
 id: RQ-0008
-status: draft
+status: ready
 executionMode: handoff
 pipelineFast: false
 createdByName: "Mustafa Bulut"
@@ -16,8 +16,14 @@ repositoryProvider: github
 ---
 # RQ-0008 - Offer an optional rewrite with a deterministic check
 
-<!-- Describe the requirement here. -->
+Some files have nothing to move, but the user may still want them shorter. Unrestricted rewriting is what lost rules before, so it must be optional and checked by code.
+
+- At the end the skill asks whether to rewrite. Without an explicit yes nothing changes; an unattended run never rewrites.
+- `agents-diet rewrite check`, `apply` and `discard` compare a candidate with the file section by section and reject one that loses a protected item.
 
 ## Acceptance Criteria
 
-<!-- Add one acceptance criterion per bullet. -->
+- The skill offers rewrite only after its report and only on an explicit yes.
+- The check rejects a lost command, path, number, code block or prohibition.
+- Normal mode is unchanged.
+- `pnpm test` and `pnpm pack:check` pass.

@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { check, UsageError, type Report } from './check.js';
 import { init, type InitTarget } from './init.js';
+import { parseSections, rewriteApply, rewriteCheck, rewriteDiscard, type RewriteReport } from './rewrite.js';
 
 const HELP = `Usage: agents-diet <command> [options]
 
@@ -14,6 +15,13 @@ Commands:
                        knows how to shrink the files: .agents/skills/agents-diet/
                        (Codex, Gemini CLI, Antigravity, Cursor, GitHub Copilot)
                        and .claude/skills/agents-diet/ (Claude Code).
+  rewrite check <file> <candidate>
+                       Compare a rewrite candidate with the file, section by
+                       section, against the rewrite limits. Changes nothing.
+  rewrite apply <file> <candidate> --sections 2,5
+                       Apply only those accepted sections, remove the candidate.
+  rewrite discard <candidate>
+                       Remove a candidate under .agents-diet-rewrite/.
 
 Options for check:
   --max-bytes <n>      The size limit per file (else package.json
@@ -59,6 +67,36 @@ function human(report: Report): string {
   return lines.join('\n');
 }
 
+function rewriteHuman(report: RewriteReport): string {
+  const lines = report.sections.filter((s) => s.status !== 'unchanged').map((s) => {
+    const name = s.heading ?? '(before the first heading)';
+    const head = `${s.status === 'accepted' ? '✓' : '✗'} ${s.index}. ${name}  ${s.beforeBytes} → ${s.afterBytes} bytes`;
+    return [head, ...s.reasons.map((r) => `    ${r}`), ...s.missing.slice(0, 8).map((m) => `    missing: ${m}`)].join('\n');
+  });
+  if (lines.length === 0) lines.push('The candidate changes nothing.');
+  lines.push('', `${report.sections.filter((s) => s.status === 'accepted').length} section(s) accepted, ${report.acceptedBytes} bytes saved if all are applied`);
+  return lines.join('\n');
+}
+
+function runRewrite(args: string[], json: boolean | undefined, sections: string | undefined): number {
+  const [action, first, second, ...rest] = args;
+  if (rest.length > 0) throw new UsageError(`Unexpected argument: ${rest[0]}`);
+  if (action === 'discard' && first && !second) {
+    rewriteDiscard(first);
+    console.log(`discarded  ${first}`);
+    return 0;
+  }
+  if ((action !== 'check' && action !== 'apply') || !first || !second) throw new UsageError('Usage: agents-diet rewrite check|apply <file> <candidate>, or rewrite discard <candidate>');
+  if (action === 'check') {
+    const report = rewriteCheck(first, second);
+    console.log(json ? JSON.stringify(report, null, 2) : rewriteHuman(report));
+    return report.structureOk && report.sections.every((s) => s.status !== 'rejected') ? 0 : 1;
+  }
+  const done = rewriteApply(first, second, parseSections(sections));
+  console.log(`applied  ${first}  ${done.savedBytes} bytes saved${done.backup ? `; original kept at ${done.backup}` : ''}`);
+  return 0;
+}
+
 function main(argv: string[]): number {
   let parsed;
   try {
@@ -74,6 +112,7 @@ function main(argv: string[]): number {
         claude: { type: 'boolean' },
         codex: { type: 'boolean' },
         force: { type: 'boolean' },
+        sections: { type: 'string' },
       },
     });
   } catch (error) {
@@ -94,6 +133,24 @@ function main(argv: string[]): number {
   if (command === undefined) {
     console.log(HELP);
     return 0;
+  }
+  if (command === 'rewrite') {
+    try {
+      for (const option of ['max-bytes', 'agents', 'claude', 'codex', 'force'] as const) {
+        if (values[option] !== undefined) throw new UsageError(`--${option} does not apply to rewrite`);
+      }
+      return runRewrite(positionals.slice(1), values.json, values.sections);
+    } catch (error) {
+      if (error instanceof UsageError) {
+        console.error(error.message);
+        return 2;
+      }
+      throw error;
+    }
+  }
+  if (values.sections !== undefined) {
+    console.error('--sections applies to rewrite apply');
+    return 2;
   }
   if ((command !== 'check' && command !== 'init') || rest.length > 0) {
     console.error(command !== 'check' && command !== 'init' ? `Unknown command: ${command}` : `Unexpected argument: ${rest[0]}`);
