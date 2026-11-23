@@ -8,6 +8,8 @@ createdByEmail: "147878765+mustafaBulut1@users.noreply.github.com"
 createdAt: "2026-11-23T15:34:59.168Z"
 branch: "factory/RQ-0010"
 createdFromCommit: "86d51d7b6db7a5f2679a6f497c5b66ca2210b402"
+githubPullRequestUrl: "https://github.com/mustafaBulut1/agents-diet/pull/12"
+githubPullRequestIid: 12
 githubIssueUrl: "https://github.com/mustafaBulut1/agents-diet/issues/11"
 githubIssueIid: 11
 repositoryProvider: github
