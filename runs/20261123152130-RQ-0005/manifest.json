@@ -13,9 +13,9 @@
       }
     ]
   },
-  "status": "passed",
+  "status": "approved",
   "createdAt": "2026-11-23T15:21:30.570Z",
-  "updatedAt": "2026-11-23T15:22:33.816Z",
+  "updatedAt": "2026-11-23T15:24:39.496Z",
   "steps": [
     {
       "agent": "handoff",
@@ -56,5 +56,7 @@
     "tool": "Claude Code",
     "model": "claude-opus-5-5",
     "prompt": "Apply the reviewed and tested RQ-0005 patch prepared in the agents-diet evaluation copy."
-  }
+  },
+  "approvedAt": "2026-11-23T15:24:39.500Z",
+  "approvedBy": "Mustafa Bulut"
 }
