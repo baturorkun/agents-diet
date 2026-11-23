@@ -1,0 +1,62 @@
+{
+  "runId": "20261123152130-RQ-0005",
+  "requirementId": "RQ-0005",
+  "executionMode": "handoff",
+  "fast": false,
+  "handoffPath": "handoffs/20261123152130-RQ-0005/handoff.md",
+  "projectGuidelines": {
+    "combinedSha256": "a6fff543109000792556a4dd4ca0d42fb107e25c07f0486541a2212d8e6e25cb",
+    "files": [
+      {
+        "path": "AGENTS.md",
+        "sha256": "0f5c034ad64d864da6cd44a4ca4b2bf26017412cd5d15a73bae029a96f64ca1d"
+      }
+    ]
+  },
+  "status": "approved",
+  "createdAt": "2026-11-23T15:21:30.570Z",
+  "updatedAt": "2026-11-23T15:24:39.496Z",
+  "steps": [
+    {
+      "agent": "handoff",
+      "status": "passed",
+      "startedAt": "2026-11-23T15:21:43.942Z",
+      "finishedAt": "2026-11-23T15:22:33.815Z",
+      "retries": 0
+    }
+  ],
+  "artifacts": [
+    "skill/SKILL.md",
+    "skill/references/anti-patterns.md",
+    "skill/references/examples.md",
+    "tests/init.test.mjs"
+  ],
+  "deletedFiles": [],
+  "gateResults": {
+    "schemaCheck": "passed",
+    "build": "passed",
+    "typeCheck": "passed",
+    "lint": "skipped",
+    "tests": "passed",
+    "security": "skipped",
+    "templateCheck": "passed"
+  },
+  "attempts": [
+    {
+      "number": 1,
+      "at": "2026-11-23T15:22:33.815Z",
+      "status": "passed",
+      "tool": "Claude Code",
+      "model": "claude-opus-5-5",
+      "failedGates": [],
+      "changedFiles": 4
+    }
+  ],
+  "implementedBy": {
+    "tool": "Claude Code",
+    "model": "claude-opus-5-5",
+    "prompt": "Apply the reviewed and tested RQ-0005 patch prepared in the agents-diet evaluation copy."
+  },
+  "approvedAt": "2026-11-23T15:24:39.500Z",
+  "approvedBy": "Mustafa Bulut"
+}

@@ -1,105 +1,84 @@
 ---
 name: agents-diet
-description: Make a project's AGENTS.md or CLAUDE.md smaller, leaner or faster to load without losing a rule. Use when asked to shrink, trim, slim, diet, clean up or reorganise agent instruction files, or when agents-diet check reports a file over its limit.
+description: Make a project's AGENTS.md or CLAUDE.md smaller, leaner or faster to load without losing a rule. Use when asked to shrink, trim, slim, diet, clean up, split or reorganise agent instruction files, or when agents-diet check reports a file over its limit. Not for editing source code or for writing new rules.
 agents-diet-version: 0.1.0
 ---
 
 # Put AGENTS.md / CLAUDE.md on a diet
 
-Agent instruction files are loaded into every session in full. They grow until
-they cost more than they give, or stop being read: Codex cuts them at 32 KiB,
-Claude Code reads `CLAUDE.md` and not `AGENTS.md`. This skill shrinks them
-without losing a rule: every rule either stays, moves to where it is loaded
-only when needed, or is shown to be enforced elsewhere.
+Instruction files are loaded into every session in full. This skill lightens that load without losing a rule: each rule stays as written, moves word for word to a place that loads only when needed, or is removed for a stated reason. `agents-diet` measures; you judge.
 
-You do the judging. `agents-diet` does the measuring.
+## Limits
 
-## 1. Measure first
+- If `CLAUDE.md` or `AGENTS.md` is missing you may create it. If it exists, edit it; never write it again from scratch.
+- Move text word for word. Never shorten, summarise, merge, reformat or reword a rule, whether you move it or leave it. Rewording needs the user's approval.
+- Never invent a rule, and never change a rule's meaning.
+- Never delete a rule you do not understand. Ask, or leave it in place.
+- Change only instruction files, and create only new skills (`.claude/skills/<name>/`) and new docs. Never touch code or other files.
+- Never write outside the project, such as `~/.claude/CLAUDE.md`, without the user's permission.
+- Never copy a secret (a password, token or key) to another file, and never print it.
+- Keep each rule in its language. A rule written in Turkish stays in Turkish.
+- Never commit, push or publish.
 
-Run the check and read it as JSON:
+## 1. Measure
 
-```sh
-npx agents-diet check --json
-```
+Run `npx agents-diet check --json` (`npx agents-diet@latest check --json` when the project does not pin it). Then list what loads in every session: the root `AGENTS.md`/`CLAUDE.md`, files they pull in with `@path` lines, and the descriptions of project skills. Note the `AGENTS.md`/`CLAUDE.md` files in subdirectories too; they load when work happens there.
 
-(`npx agents-diet@latest check --json` when the project does not pin it.)
-
-Read `files[].sections`: each heading of the file with its `bytes`,
-`numberedSteps`, `codeBlocks` and `paths`. With no finding and every file well
-under `limit.bytes`, say so and stop: there is nothing to shrink.
+Length alone decides nothing. Being asked to slim a file down does not oblige you to cut it: if nothing is out of place, say so and change nothing.
 
 ## 2. Fix what is broken
 
-- `missing-claude-md`: create `CLAUDE.md` beside the `AGENTS.md` with the
-  single line `@AGENTS.md`. Claude Code reads nothing else.
+- `missing-claude-md`: create `CLAUDE.md` beside that `AGENTS.md` with the line `@AGENTS.md`.
 - `no-agents-import`: add the line `@AGENTS.md` to that `CLAUDE.md`.
-- `dead-reference`: find where the file went and correct the path; if it is
-  gone for good, drop the sentence that named it.
+- `dead-reference`: verify each one before acting. The checker also reports live references: a path written relative to a package or module, a command name, a file the program creates when it runs. Search the project for the name. When the file moved, correct the path. When it is gone for good, remove the sentence that names it. A reference you confirm as live stays exactly as written.
 
 ## 3. Classify every section
 
-Go through `sections` in order. For each, the first rule that matches decides:
+Read every section and decide where it belongs. The first match wins.
 
-1. **Delete.** History ("on 12 October we tried…", "this used to…"); what the
-   code or a config file already shows (a dependency list, a port number that
-   is in `.env.example`); a rule a formatter, linter, pre-commit hook or CI
-   already enforces. Say which tool enforces it when you delete it.
-2. **Global.** A block that is not about this project (a working-style policy,
-   a token-saving rule) or that other projects carry word for word. Move it
-   once to the user's global file (`~/.claude/CLAUDE.md`, and
-   `~/.codex/AGENTS.md` for Codex) and remove it here. **Ask before writing
-   outside the project.**
-3. **Skill.** A procedure: `numberedSteps` > 0, or a heading like deploy,
-   release, migrate, rollback, setup, publish, onboarding. Make it a skill of
-   the project at `.claude/skills/<name>/SKILL.md` (and
-   `.codex/skills/<name>/SKILL.md` when the project has a `.codex/`
-   directory), with a frontmatter `name` and a one-line `description` that
-   says *when* it applies ("Use when deploying to the test stack, after the
-   gates pass"). Move the steps as they are; do not shorten a procedure.
-4. **Docs.** Rules for one area of the code: a long section naming one
-   subsystem's files, tables, functions or commands. Move it to
-   `docs/<area>.md`, and leave one line at the root: "Before touching
-   <area>, read `docs/<area>.md`."
-5. **Subdirectory.** Rules that apply only under one directory
-   (`frontend/`, `migrations/`): move them into that directory's own
-   `AGENTS.md` (and `CLAUDE.md` with `@AGENTS.md`). They load only when work
-   happens there.
-6. **Keep.** What every session needs: the language to answer in, the
-   architecture in a paragraph, the never-do list, how to run the checks, the
-   requirement/branch workflow. This stays at the root.
+1. **Delete:** history that no longer applies; what the code or a config already states; a rule a formatter, linter, hook or CI enforces (name it). Only when you are sure.
+2. **Global:** not about this project (a personal working style), or a block other projects carry word for word. Propose it for the user's global file (`~/.claude/CLAUDE.md`, and `~/.codex/AGENTS.md` for Codex).
+3. **Skill:** a procedure, something to *do*: numbered steps, steps told in prose ("first… then… finally…"), or a heading such as deploy, release, migrate, set up, add a new X.
+4. **Docs:** something to *know*, needed only now and then: details of a little-used tool, service or document; a long architecture or data-model description; tables of settings; rules for one area of the code that matter only when working on it.
+5. **Subdirectory:** rules that apply under one directory only.
+6. **Keep:** what every session needs: the language to answer in, the architecture in a paragraph, the never-do list, how to run the checks, the branch and review workflow.
 
-When a section mixes kinds, split it and classify the parts.
+When a section mixes kinds, split it and place each part on its own; the text of each part stays word for word.
 
-## 4. Rewrite what stays
+While you read, also note:
+- **Duplicates:** the same rule written twice. Keep one copy, unchanged.
+- **Contradictions:** two rules that ask for opposite things. Do not choose; report both.
+- **Unclear rules:** a rule whose meaning you cannot find in the project (an unknown person, freeze, flag or deadline). Do not guess; ask.
 
-- Imperative, one sentence per rule. "Run `pnpm test` before a push", not "it
-  is generally a good idea to…".
-- A rationale of one clause at most, only where the rule surprises.
-- No ticket or requirement trails (`(RQ-0051, RQ-0052)`) unless the project's
-  own rules ask for them.
-- No duplicated rule: when the same rule stands in two places, keep one.
+When a section is hard to place, read `references/examples.md`: one worked example per decision.
 
-## 5. Keep the two files in step
+## 4. Ask before you change
 
-`CLAUDE.md` either imports `AGENTS.md` (the line `@AGENTS.md`) and adds only
-what is Claude Code-specific, or is the only file. The same rule is never
-written in both.
+- **A person is in the session:** ask with the AskUserQuestion tool. Put the proposed skills in one multi-select question, each with its name as the label and its one-line description. Ask each unclear rule, each contradiction and each global block as its own question. Without such a tool, write the proposals as a numbered list and wait for the answer.
+- **Nobody can answer (an unattended run):** do only what needs no answer; leave the rest in place.
 
-## 6. Measure again and report
+Change nothing the user did not agree to. Create only the skills they chose.
 
-Run `npx agents-diet check --json` once more. Report:
+## 5. Apply
 
-- bytes before and after, per file;
-- every section that moved, and where it went;
-- every section deleted, and why (which tool or file already covers it);
-- anything you were unsure about and left in place.
+- **Skill:** `.claude/skills/<name>/SKILL.md` (and `.codex/skills/<name>/SKILL.md` when the project has `.codex/`). Frontmatter `name` and a one-line `description` that says when it applies ("Use when …"). The body is the procedure, word for word, steps in their order. Fix an existing project skill whose `name` or `description` is missing.
+- **Docs:** `docs/<topic>.md`, the section word for word.
+- **Subdirectory:** that directory's `AGENTS.md`, with a `CLAUDE.md` beside it that holds `@AGENTS.md`.
+- **Pointer:** leave one plain line at the old place that says when to read the new one: "Before working on <topic>, read `docs/<topic>.md`." Never use an `@` line for this: an import loads the file in every session again. Open the target first and confirm the moved text is there in full.
+- **What stays** stays word for word. Removing a duplicate, a dead reference or a section you were told to delete is allowed; rewording a rule that stays is not.
 
-Leave the changes uncommitted. The user reviews and commits.
+`CLAUDE.md` either imports `AGENTS.md` and adds only what is Claude Code-specific, or is the only file. No rule is written in both.
 
-## Never
+Before you finish, read `references/anti-patterns.md` and check your changes against it.
 
-- Invent a rule, or change a rule's meaning while moving or rewriting it.
-- Delete a rule you do not understand. Ask.
-- Write outside the project without asking first.
-- Shorten a procedure's steps to save bytes: move it whole.
-- Run `git commit`, `git push` or any command that publishes.
+## 6. Report
+
+Run `npx agents-diet check --json` again, then report:
+
+- bytes loaded in every session, before and after, and the size of each instruction file;
+- each section moved, and where; each section deleted, and why;
+- each dead-reference finding and what you did with it, including the ones you found live;
+- duplicates removed and contradictions found;
+- under a heading named "Questions": everything you asked, or would have asked.
+
+Leave the changes uncommitted for the user to review.

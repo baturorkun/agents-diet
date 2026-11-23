@@ -15,14 +15,21 @@ test('the shipped skill names itself, triggers on shrinking, and carries the pac
   assert.match(frontmatter, /^name: agents-diet$/m);
   assert.match(frontmatter, /^description: .*(shrink|smaller).*$/m);
   assert.match(frontmatter, new RegExp(`^agents-diet-version: ${version.replace(/\./g, '\\.')}$`, 'm'), 'bump agents-diet-version in skill/SKILL.md with package.json');
-  // The six steps and the never-do list.
-  for (const heading of ['## 1. Measure first', '## 2. Fix what is broken', '## 3. Classify every section', '## 4. Rewrite what stays', '## 5. Keep the two files in step', '## 6. Measure again and report', '## Never']) {
+  // The limits first, then the six steps in the order they run (RQ-L01).
+  for (const heading of ['## Limits', '## 1. Measure', '## 2. Fix what is broken', '## 3. Classify every section', '## 4. Ask before you change', '## 5. Apply', '## 6. Report']) {
     assert.ok(skill.includes(`\n${heading}\n`), heading);
   }
-  for (const kind of ['Delete', 'Global', 'Skill', 'Docs', 'Subdirectory', 'Keep']) assert.match(skill, new RegExp(`\\*\\*${kind}\\.\\*\\*`));
+  assert.ok(skill.indexOf('## Limits') < skill.indexOf('## 1. Measure'), 'the limits come first');
+  for (const kind of ['Delete', 'Global', 'Skill', 'Docs', 'Subdirectory', 'Keep']) assert.match(skill, new RegExp(`\\*\\*${kind}:\\*\\*`));
   assert.match(skill, /npx agents-diet check --json/);
-  assert.match(skill, /Ask before writing\s+outside the project/);
-  assert.match(skill, /Run `git commit`/);
+  assert.match(skill, /Never write outside the project/);
+  assert.match(skill, /Move text word for word/);
+  assert.match(skill, /Never commit, push or publish/);
+  // The references the skill points to ship with it.
+  for (const reference of ['references/examples.md', 'references/anti-patterns.md']) {
+    assert.ok(skill.includes(reference), reference);
+    assert.ok(existsSync(join('skill', reference)), `skill/${reference} exists`);
+  }
 });
 
 test('init writes the Claude Code copy by default, and the Codex copy when .codex/ exists or --codex is given', () => {
