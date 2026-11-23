@@ -29,8 +29,16 @@ test('check exits 1 on findings and names them', () => {
   withProject({ 'AGENTS.md': 'See `docs/missing.md`.\n' }, (root) => {
     const result = cli('check', root);
     assert.equal(result.status, 1);
-    assert.match(result.stdout, /✗ no CLAUDE\.md beside it/);
+    assert.match(result.stdout, /⚠ no CLAUDE\.md beside it/);
     assert.match(result.stdout, /✗ docs\/missing\.md does not exist/);
+  });
+});
+
+test('warnings alone exit 0 (RQ-L03): an AGENTS.md without a CLAUDE.md', () => {
+  withProject({ 'AGENTS.md': '# Rules\n' }, (root) => {
+    const result = cli('check', root);
+    assert.equal(result.status, 0, result.stdout);
+    assert.match(result.stdout, /1 finding\(s\) \(1 warning\(s\)\)/);
   });
 });
 
@@ -43,7 +51,7 @@ test('--json prints the documented shape', () => {
     assert.deepEqual(report.limit, { bytes: 1, source: 'flag' });
     assert.deepEqual(Object.keys(report.files[0]), ['path', 'bytes', 'chars', 'tokens', 'findings', 'sections']);
     assert.deepEqual(report.files[0].findings.map((finding) => finding.kind), ['over-limit', 'missing-claude-md']);
-    assert.deepEqual(report.summary, { files: 1, bytes: 2, findings: 2 });
+    assert.deepEqual(report.summary, { files: 1, bytes: 2, findings: 2, errors: 1, warnings: 1 });
   });
 });
 

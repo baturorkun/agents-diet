@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readFileSync, symlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
 import { check, findInstructionFiles, referencedPaths, DEFAULT_MAX_BYTES, UsageError } from '../dist/index.js';
@@ -41,7 +41,10 @@ test('each finding kind is reported once on the file it belongs to', () => {
         'AGENTS.md: dead-reference scripts/gone.sh',
         'pkg/AGENTS.md: no-agents-import',
       ]);
-      assert.match(report.files[0].findings[1].message, /Claude Code does not read AGENTS\.md/);
+      assert.match(report.files[0].findings[1].message, /reads AGENTS\.md only from version 2\.1\.277/);
+      // RQ-L03: a missing CLAUDE.md is a warning; the rest are errors.
+      assert.deepEqual(report.files[0].findings.map((finding) => finding.severity), ['error', 'warning', 'error', 'error']);
+      assert.deepEqual([report.summary.errors, report.summary.warnings], [4, 1]);
     },
   );
 });
@@ -148,4 +151,30 @@ test('ignore: paths the project leaves out, from package.json or .agents-diet.js
 
 test('a directory that does not exist is a usage error', () => {
   assert.throws(() => check('/no/such/agents-diet/dir'), UsageError);
+});
+
+test('RQ-L03: GEMINI.md that does not import AGENTS.md is a warning, unless settings name AGENTS.md', () => {
+  withProject({ ...CLEAN, 'GEMINI.md': '# Gemini\n\nUse pnpm.\n' }, (root) => {
+    const report = check(root);
+    assert.ok(report.files.some((file) => file.path === 'GEMINI.md'), 'GEMINI.md is measured');
+    assert.deepEqual(kinds(report), ['AGENTS.md: no-gemini-import']);
+    assert.equal(report.files.find((file) => file.path === 'AGENTS.md').findings[0].severity, 'warning');
+  });
+  withProject({ ...CLEAN, 'GEMINI.md': '@AGENTS.md\n' }, (root) => assert.deepEqual(kinds(check(root)), []));
+  withProject({ ...CLEAN, 'GEMINI.md': 'x\n', '.gemini/settings.json': JSON.stringify({ context: { fileName: ['AGENTS.md', 'GEMINI.md'] } }) }, (root) => assert.deepEqual(kinds(check(root)), []));
+});
+
+test('RQ-L03: AGENTS.md files read together over the limit (Codex), reported on the deepest one', () => {
+  withProject({ ...CLEAN, 'AGENTS.md': 'a'.repeat(60) + '\n', 'pkg/AGENTS.md': 'b'.repeat(60) + '\n', 'pkg/CLAUDE.md': '@AGENTS.md\n', 'other/AGENTS.md': 'c\n', 'other/CLAUDE.md': '@AGENTS.md\n' }, (root) => {
+    const report = check(root, { maxBytes: 100 });
+    assert.deepEqual(kinds(report), ['pkg/AGENTS.md: over-limit-combined']);
+    assert.match(report.files.find((file) => file.path === 'pkg/AGENTS.md').findings[0].message, /with the AGENTS\.md files above it \(AGENTS\.md\) 122 bytes/);
+  });
+});
+
+test('RQ-L03: a CLAUDE.md that is a symlink to AGENTS.md needs no import', () => {
+  withProject({ 'AGENTS.md': '# Rules\n' }, (root) => {
+    symlinkSync('AGENTS.md', join(root, 'CLAUDE.md'));
+    assert.deepEqual(kinds(check(root)), []);
+  });
 });

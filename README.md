@@ -6,11 +6,12 @@ instructions too big, unread or out of date.
 Agent instruction files are loaded into every session in full. They grow, and
 then they cost more than they give, or they stop being read at all:
 
-- Codex cuts a project's instruction files at **32 KiB** by default
-  (`project_doc_max_bytes`); the rest is never seen.
-- Claude Code reads `CLAUDE.md`, **not `AGENTS.md`**. A project with only
-  `AGENTS.md` gives Claude Code none of its rules, unless a `CLAUDE.md` imports
-  it with the line `@AGENTS.md`.
+- Codex joins every `AGENTS.md` from the project root down and stops at
+  **32 KiB** in total by default (`project_doc_max_bytes`); the rest is never seen.
+- Claude Code reads `CLAUDE.md`; it reads `AGENTS.md` only when there is no
+  `CLAUDE.md` (from version 2.1.277, and not in every session). A `CLAUDE.md`
+  that does not import `AGENTS.md` with the line `@AGENTS.md` hides its rules.
+- Gemini CLI reads `GEMINI.md`, and `AGENTS.md` only when its settings name it.
 - Paths in the instructions point at files that were moved or deleted long ago.
 
 ## Two commands
@@ -29,30 +30,33 @@ place. agents-diet never calls a model itself.
 
 ```
 AGENTS.md  20,143 bytes  ~4,994 tokens
-  ✗ no CLAUDE.md beside it: Claude Code does not read AGENTS.md (add a CLAUDE.md with the line @AGENTS.md)
+  ⚠ no CLAUDE.md beside it: Claude Code reads AGENTS.md only from version 2.1.277 and not in every session (add a CLAUDE.md with the line @AGENTS.md to be safe)
   ✗ scripts/deploy-v1.sh does not exist
 src/api/AGENTS.md  1,820 bytes  ~455 tokens
   ✓ no finding
 
-2 file(s), 21,963 bytes, 2 finding(s); limit 32768 bytes (default)
+2 file(s), 21,963 bytes, 2 finding(s) (1 warning(s)); limit 32768 bytes (default)
 ```
 
 What `check` looks at:
 
-- every `AGENTS.md` and `CLAUDE.md` in the project, and `.claude/CLAUDE.md` (in a
+- every `AGENTS.md`, `CLAUDE.md` and `GEMINI.md` in the project, and `.claude/CLAUDE.md` (in a
   Git checkout, the files Git tracks or would track; `node_modules/`, `dist/`
   and the like never);
 - **size**: bytes, characters and an estimate of tokens; a file over the limit
-  is a finding;
-- **Claude Code**: a directory with `AGENTS.md` and no `CLAUDE.md`, or a
-  `CLAUDE.md` that does not import it;
+  is a finding, and so are nested `AGENTS.md` files over it together (Codex
+  reads them as one);
+- **Claude Code**: a `CLAUDE.md` that does not import the `AGENTS.md` beside it
+  (an error); a directory with `AGENTS.md` and no `CLAUDE.md` (a warning);
+- **Gemini CLI**: a `GEMINI.md` that does not import the `AGENTS.md` beside it
+  (a warning);
 - **dead references**: paths in links and in `code spans` that do not exist.
   Code (`config.value`), commands, URLs, globs, absolute paths and paths Git
   ignores are not taken for paths. A file named without a directory is looked
   for anywhere in the project.
 
-`check` only reads. It exits 0 with no finding, 1 with findings and 2 on a
-usage error, so it works as a CI step:
+`check` only reads. It exits 0 with no error (warnings allowed), 1 with errors
+and 2 on a usage error, so it works as a CI step:
 
 ```sh
 npx agents-diet check --max-bytes 16384
@@ -68,24 +72,28 @@ works from when it decides what to move.
 ## init
 
 ```sh
-npx agents-diet init             # .claude/skills/agents-diet/SKILL.md
-npx agents-diet init --codex     # .codex/skills/agents-diet/SKILL.md too
+npx agents-diet init             # .agents/skills/agents-diet/ and .claude/skills/agents-diet/
+npx agents-diet init --claude    # Claude Code's location only
 ```
 
 Then ask your agent: *"put AGENTS.md on a diet"*. Following the skill it:
 
-1. runs `agents-diet check --json` and stops if there is nothing to shrink;
-2. fixes what is broken (a missing `CLAUDE.md`, dead paths);
+1. runs `agents-diet check --json` and lists what loads in every session;
+   length alone decides nothing, and a file with nothing out of place is left alone;
+2. fixes what is broken: a `CLAUDE.md` or `GEMINI.md` that does not import
+   `AGENTS.md`, dead paths (each one verified first);
 3. classifies every section, first match wins: **delete** (history, what the
-   code or a linter already enforces), **global** (a block shared by your
-   projects, moved to `~/.claude/CLAUDE.md` with your leave), **skill** (a
-   procedure, moved to `.claude/skills/<name>/`), **docs** (one area's rules,
-   moved to `docs/<area>.md` with one pointer line left behind),
-   **subdirectory** (rules for one directory), **keep**;
-4. rewrites what stays: imperative, one sentence per rule, no ticket trails;
-5. keeps `CLAUDE.md` importing `AGENTS.md`, with no rule in both;
+   code or a linter already enforces), **global** (not about this project,
+   proposed for the global file of each agent you use), **skill** (a procedure,
+   in numbered steps or in prose), **docs** (something to know only now and
+   then), **subdirectory** (rules for one directory), **keep**;
+4. asks before it changes anything: the proposed skills as one multiple-choice
+   question, each unclear rule, contradiction and global block on its own;
+5. moves text word for word: skills to `.agents/skills/<name>/` and
+   `.claude/skills/<name>/`, docs to `docs/<topic>.md` with one pointer line
+   left behind; what stays is not reworded;
 6. measures again and reports before/after, what moved where, what was deleted
-   and why, leaving the changes uncommitted for you.
+   and why, and its questions, leaving the changes uncommitted for you.
 
 It never invents a rule, changes a rule's meaning, deletes what it does not
 understand, writes outside the project without asking, or commits.
@@ -115,10 +123,10 @@ In `package.json`, or the same keys in `.agents-diet.json`:
 import { check, init } from 'agents-diet';
 
 const report = check('.', { maxBytes: 16384 });
-console.log(report.summary); // { files, bytes, findings }
+console.log(report.summary); // { files, bytes, findings, errors, warnings }
 console.log(report.files[0].sections.map((s) => [s.heading, s.bytes]));
 
-init('.', { targets: ['claude'] }); // what the CLI's init does
+init('.', { targets: ['agents', 'claude'] }); // what the CLI's init does
 ```
 
 `check` returns what `--json` prints. No runtime dependencies; Node 20 or later.

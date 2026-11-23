@@ -17,7 +17,7 @@ Found in `CLAUDE.md`:
 
 Decision: a procedure, needed only when releasing. It moves to a skill, word for word.
 
-`.claude/skills/release-mobile/SKILL.md`:
+`.agents/skills/release-mobile/SKILL.md`, and the same file at `.claude/skills/release-mobile/SKILL.md`:
 
 ```markdown
 ---
@@ -126,4 +126,4 @@ Decision: nothing in the project says who Priya is or whether the migration is d
 
 Found: `Answer in short paragraphs and lead with the result.`
 
-Decision: a personal working style. Propose moving it to the user's global file and ask; never write there without permission.
+Decision: a personal working style. Propose moving it to the global file of each agent the user works with (`~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`, `~/.gemini/GEMINI.md`) and ask; never write there without permission.

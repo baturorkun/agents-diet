@@ -1,6 +1,6 @@
 ---
 id: RQ-0006
-status: draft
+status: ready
 executionMode: handoff
 pipelineFast: false
 createdByName: "Mustafa Bulut"
@@ -16,8 +16,15 @@ repositoryProvider: github
 ---
 # RQ-0006 - Support every agent platform in init, check and the skill
 
-<!-- Describe the requirement here. -->
+Agents read different files. Codex reads `.agents/skills/`, not `.codex/skills/`; Claude Code reads `AGENTS.md` itself only when no `CLAUDE.md` exists; Gemini CLI reads `GEMINI.md`; Codex applies its 32 KiB limit to nested `AGENTS.md` files together.
+
+- `init` installs the whole skill, references included, to `.agents/skills/` and `.claude/skills/`.
+- `check` reports a missing `CLAUDE.md` as a warning, measures `GEMINI.md`, checks nested `AGENTS.md` files against the limit together, accepts a symlinked `CLAUDE.md`, and exits 1 on errors only.
+- The skill names no single question tool, writes new skills to both locations and keeps `GEMINI.md` in step with `AGENTS.md`.
 
 ## Acceptance Criteria
 
-<!-- Add one acceptance criterion per bullet. -->
+- `init` writes both skill locations and nothing to `.codex/skills/`.
+- Findings carry a severity; warnings alone exit 0.
+- `GEMINI.md` and the combined `AGENTS.md` limit are reported.
+- `pnpm test` and `pnpm pack:check` pass.
