@@ -57,9 +57,9 @@ Found:
 The nightly export writes `exports/billing-YYYYMMDD.csv` with the columns `account_id`, `plan`, `seats`, `amount_cents`. Finance reads it with a spreadsheet macro; the column order must not change. It runs on the old cron host, not in Kubernetes.
 ```
 
-Decision: facts about a little-used job, not steps to perform, and needed only when touching that export. It moves to `docs/billing-export.md`, word for word.
+Decision: facts about a little-used job, not steps to perform, and needed only when touching that export. It moves to `agents-docs/billing-export.md`, word for word.
 
-Left in place: `Before changing the billing export, read docs/billing-export.md.`
+Left in place: `Before changing the billing export, read agents-docs/billing-export.md.`
 
 ## Subdirectory: rules for one directory
 

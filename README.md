@@ -52,8 +52,12 @@ What `check` looks at:
   (a warning);
 - **dead references**: paths in links and in `code spans` that do not exist.
   Code (`config.value`), commands, URLs, globs, absolute paths and paths Git
-  ignores are not taken for paths. A file named without a directory is looked
-  for anywhere in the project.
+  ignores are not taken for paths. A path is looked for relative to the file,
+  then to the project root (also when written with a leading `/`, such as
+  `/scripts/`); a file named without a directory anywhere in the project. A
+  path found only further down, as the end of a longer path (`core/pom.xml` at
+  `libs/core/pom.xml`), is not dead: it is a `reference-elsewhere` warning that
+  names where it exists.
 
 `check` only reads. It exits 0 with no error (warnings allowed), 1 with errors
 and 2 on a usage error, so it works as a CI step:
@@ -90,7 +94,7 @@ Then ask your agent: *"put AGENTS.md on a diet"*. Following the skill it:
 4. asks before it changes anything: the proposed skills as one multiple-choice
    question, each unclear rule, contradiction and global block on its own;
 5. moves text word for word: skills to `.agents/skills/<name>/` and
-   `.claude/skills/<name>/`, docs to `docs/<topic>.md` with one pointer line
+   `.claude/skills/<name>/`, docs to `agents-docs/<topic>.md` with one pointer line
    left behind; what stays is not reworded;
 6. measures again and reports before/after, what moved where, what was deleted
    and why, and its questions, leaving the changes uncommitted for you.

@@ -25,6 +25,10 @@ test('the shipped skill names itself, triggers on shrinking, and carries the pac
   assert.match(skill, /Never write outside the project/);
   assert.match(skill, /Move text word for word/);
   assert.match(skill, /Never commit, push or publish/);
+  // New documents go to agents-docs, never to the project's docs/ (RQ-L07).
+  assert.match(skill, /`agents-docs\/<topic>\.md`/);
+  assert.match(skill, /Never add a new document to an existing `docs\/` folder/);
+  for (const text of [skill, readFileSync('skill/references/examples.md', 'utf8')]) assert.doesNotMatch(text, /(?<![-\w])docs\/(<topic>|billing-export)\.md/);
   // The references the skill points to ship with it.
   for (const reference of ['references/examples.md', 'references/anti-patterns.md']) {
     assert.ok(skill.includes(reference), reference);
