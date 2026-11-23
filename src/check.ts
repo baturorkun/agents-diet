@@ -1,11 +1,12 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, lstatSync, readdirSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 /** Codex cuts a project's instruction files here by default (`project_doc_max_bytes`). */
 export const DEFAULT_MAX_BYTES = 32_768;
 
-const INSTRUCTION_FILES = new Set(['AGENTS.md', 'CLAUDE.md']);
+// GEMINI.md is Gemini CLI's and Antigravity's default instruction file (RQ-L03).
+const INSTRUCTION_FILES = new Set(['AGENTS.md', 'CLAUDE.md', 'GEMINI.md']);
 const SKIPPED_DIRECTORIES = new Set(['node_modules', '.git', 'dist', 'build', 'coverage', '.pnpm-store']);
 const IMPORTS_AGENTS = /^\s*@(\.\/)?AGENTS\.md\s*$/m;
 // A code span names a file only with one of these extensions (or a `/`):
@@ -18,10 +19,14 @@ const FILE_EXTENSIONS = new Set(
 // Characters a path in these files does not carry: `pkg>=1.2`, `user@host:/dir`, `f(x)`.
 const NOT_A_PATH = /[@:=<>(),'"|!?;]/;
 
-export type FindingKind = 'over-limit' | 'missing-claude-md' | 'no-agents-import' | 'dead-reference';
+export type FindingKind = 'over-limit' | 'over-limit-combined' | 'missing-claude-md' | 'no-agents-import' | 'no-gemini-import' | 'dead-reference';
+
+/** error: the agent misses or loses instructions; warning: it may, depending on the agent or its version. */
+export type Severity = 'error' | 'warning';
 
 export interface Finding {
   kind: FindingKind;
+  severity: Severity;
   message: string;
   /** The path a dead reference names, as written. */
   ref?: string;
@@ -62,7 +67,8 @@ export interface Report {
   /** Path prefixes left out (package.json "agents-diet".ignore, else .agents-diet.json). */
   ignore: string[];
   files: FileReport[];
-  summary: { files: number; bytes: number; findings: number };
+  /** findings = errors + warnings; the CLI exits 1 on errors only. */
+  summary: { files: number; bytes: number; findings: number; errors: number; warnings: number };
 }
 
 export interface CheckOptions {
@@ -235,6 +241,23 @@ function exists(path: string): boolean {
   }
 }
 
+/** Is the file at `from` a symlink to the file at `to`? (A CLAUDE.md symlinked to AGENTS.md shares its rules.) */
+function pointsTo(root: string, from: string, to: string): boolean {
+  try {
+    return lstatSync(join(root, from)).isSymbolicLink() && realpathSync(join(root, from)) === realpathSync(join(root, to));
+  } catch {
+    return false;
+  }
+}
+
+function readJsonQuiet(path: string): Record<string, unknown> | undefined {
+  try {
+    return JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
+  } catch {
+    return undefined;
+  }
+}
+
 /** Reads only: measures each instruction file under dir and lists what is wrong with it. */
 export function check(dir: string, options: CheckOptions = {}): Report {
   const root = resolve(dir);
@@ -244,6 +267,10 @@ export function check(dir: string, options: CheckOptions = {}): Report {
   const all = projectFiles(root);
   const paths = findInstructionFiles(root, all).filter((path) => !under(path, ignore));
   const present = new Set(paths);
+  // Gemini CLI reads AGENTS.md when the project's settings name it as a context file.
+  const geminiSettings = readJsonQuiet(join(root, '.gemini', 'settings.json'));
+  const fileName = (geminiSettings?.context as { fileName?: unknown } | undefined)?.fileName ?? geminiSettings?.contextFileName;
+  const geminiReadsAgents = [fileName].flat().includes('AGENTS.md');
   const names = new Set(all.map((path) => path.split('/').pop()));
 
   const files = paths.map((path): FileReport => {
@@ -253,16 +280,34 @@ export function check(dir: string, options: CheckOptions = {}): Report {
     const chars = [...text].length;
     const findings: Finding[] = [];
 
-    if (bytes > limit.bytes) findings.push({ kind: 'over-limit', message: `${bytes} bytes, over the limit of ${limit.bytes} (${limit.source})` });
+    if (bytes > limit.bytes) findings.push({ kind: 'over-limit', severity: 'error', message: `${bytes} bytes, over the limit of ${limit.bytes} (${limit.source})` });
+
+    // Codex joins every AGENTS.md from the project root down to the working directory and stops
+    // adding at the limit, which is a limit on their sum (RQ-L03).
+    if (path.endsWith('AGENTS.md') && bytes <= limit.bytes) {
+      const chain = paths.filter((other) => other.endsWith('AGENTS.md') && (dirname(other) === '.' || path === other || path.startsWith(dirname(other) + '/')));
+      const total = chain.reduce((sum, other) => sum + Buffer.byteLength(readFileSync(join(root, other), 'utf8'), 'utf8'), 0);
+      const anyAlone = chain.some((other) => Buffer.byteLength(readFileSync(join(root, other), 'utf8'), 'utf8') > limit.bytes);
+      if (chain.length > 1 && total > limit.bytes && !anyAlone) {
+        findings.push({ kind: 'over-limit-combined', severity: 'error', message: `with the AGENTS.md files above it (${chain.filter((other) => other !== path).join(', ')}) ${total} bytes, over the limit of ${limit.bytes}: Codex reads them together and stops at the limit` });
+      }
+    }
 
     const directory = dirname(path) === '.' ? '' : dirname(path) + '/';
     if (path.endsWith('AGENTS.md')) {
       const beside = `${directory}CLAUDE.md`;
-      const claude = present.has(beside) ? beside : directory === '' && present.has('.claude/CLAUDE.md') ? '.claude/CLAUDE.md' : undefined;
+      // A CLAUDE.md symlinked to AGENTS.md is not listed (symlinks are not walked) but shares its rules.
+      const claude = present.has(beside) || pointsTo(root, beside, path) ? beside : directory === '' && present.has('.claude/CLAUDE.md') ? '.claude/CLAUDE.md' : undefined;
       if (!claude) {
-        findings.push({ kind: 'missing-claude-md', message: `no ${beside} beside it: Claude Code does not read AGENTS.md (add a CLAUDE.md with the line @AGENTS.md)` });
-      } else if (!IMPORTS_AGENTS.test(readFileSync(join(root, claude), 'utf8'))) {
-        findings.push({ kind: 'no-agents-import', message: `${claude} does not import it: add the line @AGENTS.md` });
+        // Claude Code 2.1.277+ reads AGENTS.md itself when there is no CLAUDE.md; older versions and some sessions do not.
+        findings.push({ kind: 'missing-claude-md', severity: 'warning', message: `no ${beside} beside it: Claude Code reads AGENTS.md only from version 2.1.277 and not in every session (add a CLAUDE.md with the line @AGENTS.md to be safe)` });
+      } else if (!pointsTo(root, claude, path) && !IMPORTS_AGENTS.test(readFileSync(join(root, claude), 'utf8'))) {
+        // With a CLAUDE.md present, Claude Code reads it instead of AGENTS.md.
+        findings.push({ kind: 'no-agents-import', severity: 'error', message: `${claude} does not import it, so Claude Code reads ${claude} and not AGENTS.md: add the line @AGENTS.md` });
+      }
+      const gemini = `${directory}GEMINI.md`;
+      if (present.has(gemini) && !pointsTo(root, gemini, path) && !IMPORTS_AGENTS.test(readFileSync(join(root, gemini), 'utf8')) && !geminiReadsAgents) {
+        findings.push({ kind: 'no-gemini-import', severity: 'warning', message: `${gemini} does not import it, so Gemini CLI and Antigravity may read ${gemini} and not AGENTS.md: add the line @AGENTS.md` });
       }
     }
 
@@ -279,7 +324,7 @@ export function check(dir: string, options: CheckOptions = {}): Report {
     for (const ref of missing) {
       const fromRoot = relative(root, resolve(base, ref)).split(sep).join('/');
       if (ignored.has(fromRoot) || under(fromRoot, ignore) || under(ref.replace(/^\.\//, ''), ignore)) continue;
-      findings.push({ kind: 'dead-reference', message: `${ref} does not exist`, ref });
+      findings.push({ kind: 'dead-reference', severity: 'error', message: `${ref} does not exist`, ref });
     }
 
     return { path, bytes, chars, tokens: Math.ceil(chars / 4), findings, sections: sections(text) };
@@ -294,6 +339,8 @@ export function check(dir: string, options: CheckOptions = {}): Report {
       files: files.length,
       bytes: files.reduce((sum, file) => sum + file.bytes, 0),
       findings: files.reduce((sum, file) => sum + file.findings.length, 0),
+      errors: files.reduce((sum, file) => sum + file.findings.filter((finding) => finding.severity === 'error').length, 0),
+      warnings: files.reduce((sum, file) => sum + file.findings.filter((finding) => finding.severity === 'warning').length, 0),
     },
   };
 }

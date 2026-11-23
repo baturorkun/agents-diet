@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import test from 'node:test';
 import { init, SKILL_RELATIVE_PATHS, UsageError } from '../dist/index.js';
 import { withProject } from './helpers.mjs';
@@ -32,19 +32,38 @@ test('the shipped skill names itself, triggers on shrinking, and carries the pac
   }
 });
 
-test('init writes the Claude Code copy by default, and the Codex copy when .codex/ exists or --codex is given', () => {
+test('init writes both locations by default, with the references; --claude or --agents alone (RQ-L02)', () => {
   withProject({ 'package.json': '{}' }, (root) => {
-    assert.deepEqual(init(root), [{ target: 'claude', path: SKILL_RELATIVE_PATHS.claude, outcome: 'written' }]);
-    assert.equal(readFileSync(join(root, SKILL_RELATIVE_PATHS.claude), 'utf8'), skill);
-    assert.ok(!existsSync(join(root, '.codex')));
-  });
-  withProject({ '.codex/config.toml': '' }, (root) => {
-    assert.deepEqual(init(root).map((result) => [result.target, result.outcome]), [['claude', 'written'], ['codex', 'written']]);
-    assert.equal(readFileSync(join(root, SKILL_RELATIVE_PATHS.codex), 'utf8'), skill);
+    assert.deepEqual(init(root), [
+      { target: 'agents', path: SKILL_RELATIVE_PATHS.agents, outcome: 'written' },
+      { target: 'claude', path: SKILL_RELATIVE_PATHS.claude, outcome: 'written' },
+    ]);
+    for (const target of ['agents', 'claude']) {
+      const dir = dirname(join(root, SKILL_RELATIVE_PATHS[target]));
+      assert.equal(readFileSync(join(dir, 'SKILL.md'), 'utf8'), skill);
+      for (const reference of ['references/examples.md', 'references/anti-patterns.md']) {
+        assert.equal(readFileSync(join(dir, reference), 'utf8'), readFileSync(join('skill', reference), 'utf8'), `${target} ${reference}`);
+      }
+    }
+    assert.ok(!existsSync(join(root, '.codex')), 'nothing goes to .codex/skills: Codex reads .agents/skills');
   });
   withProject({}, (root) => {
-    assert.deepEqual(init(root, { targets: ['codex'] }).map((result) => result.target), ['codex']);
+    assert.deepEqual(init(root, { targets: ['claude'] }).map((result) => result.target), ['claude']);
+    assert.ok(!existsSync(join(root, '.agents')));
+  });
+  withProject({}, (root) => {
+    assert.deepEqual(init(root, { targets: ['agents'] }).map((result) => result.target), ['agents']);
     assert.ok(!existsSync(join(root, '.claude')));
+  });
+});
+
+test('a missing reference makes the package\'s own copy out of date, so init writes it again', () => {
+  withProject({}, (root) => {
+    init(root, { targets: ['claude'] });
+    const dir = dirname(join(root, SKILL_RELATIVE_PATHS.claude));
+    rmSync(join(dir, 'references/examples.md'));
+    assert.equal(init(root, { targets: ['claude'] })[0].outcome, 'written');
+    assert.ok(existsSync(join(dir, 'references/examples.md')));
   });
 });
 
@@ -54,31 +73,33 @@ test('init replaces only its own earlier copy; a changed copy is kept unless --f
     mkdirSync(join(root, '.claude/skills/agents-diet'), { recursive: true });
     // Ours, from an earlier version: replaced.
     writeFileSync(path, skill.replace(/^agents-diet-version: .*$/m, 'agents-diet-version: 0.0.1'));
-    assert.equal(init(root)[0].outcome, 'written');
+    assert.equal(init(root, { targets: ['claude'] })[0].outcome, 'written');
     assert.equal(readFileSync(path, 'utf8'), skill);
     // Already this version: current, untouched.
-    assert.equal(init(root)[0].outcome, 'current');
+    assert.equal(init(root, { targets: ['claude'] })[0].outcome, 'current');
     // Edited by the project: kept, then replaced with force.
     writeFileSync(path, skill + '\n- Also: never touch the CSS.\n');
-    assert.equal(init(root)[0].outcome, 'kept');
+    assert.equal(init(root, { targets: ['claude'] })[0].outcome, 'kept');
     assert.match(readFileSync(path, 'utf8'), /never touch the CSS/);
-    assert.equal(init(root, { force: true })[0].outcome, 'written');
+    assert.equal(init(root, { targets: ['claude'], force: true })[0].outcome, 'written');
     assert.equal(readFileSync(path, 'utf8'), skill);
     // Someone else's skill of the same name: kept.
     writeFileSync(path, '---\nname: agents-diet\n---\nmine\n');
-    assert.equal(init(root)[0].outcome, 'kept');
+    assert.equal(init(root, { targets: ['claude'] })[0].outcome, 'kept');
   });
 });
 
 test('init from the CLI: says what it did, exits 2 on usage errors; install is no command', () => {
-  withProject({ '.codex/config.toml': '' }, (root) => {
+  withProject({}, (root) => {
     const first = cli('init', root);
     assert.equal(first.status, 0, first.stderr);
+    assert.match(first.stdout, /^wrote {2}\.agents\/skills\/agents-diet\/SKILL\.md$/m);
     assert.match(first.stdout, /^wrote {2}\.claude\/skills\/agents-diet\/SKILL\.md$/m);
-    assert.match(first.stdout, /^wrote {2}\.codex\/skills\/agents-diet\/SKILL\.md$/m);
     const again = cli('init', root, '--claude');
     assert.match(again.stdout, /^already current {2}\.claude/m);
-    assert.doesNotMatch(again.stdout, /codex/);
+    assert.doesNotMatch(again.stdout, /\.agents/);
+    // --codex, kept from 0.1.0, now means .agents/skills/.
+    assert.match(cli('init', root, '--codex').stdout, /^already current {2}\.agents/m);
     writeFileSync(join(root, SKILL_RELATIVE_PATHS.claude), 'changed\n');
     assert.match(cli('init', root, '--claude').stdout, /^kept \(changed here; --force replaces it\)/m);
     assert.match(cli('init', root, '--claude', '--force').stdout, /^wrote/m);
@@ -89,5 +110,6 @@ test('init from the CLI: says what it did, exits 2 on usage errors; install is n
   assert.match(old.stderr, /Unknown command: install/);
   assert.equal(cli('init', '.', '--json').status, 2);
   assert.equal(cli('check', '.', '--force').status, 2);
+  assert.equal(cli('check', '.', '--agents').status, 2);
   assert.throws(() => init('/no/such/agents-diet/dir'), UsageError);
 });
