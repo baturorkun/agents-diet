@@ -1,6 +1,6 @@
 ---
 id: RQ-0008
-status: ready
+status: completed
 executionMode: handoff
 pipelineFast: false
 createdByName: "Mustafa Bulut"
@@ -8,6 +8,9 @@ createdByEmail: "147878765+mustafaBulut1@users.noreply.github.com"
 createdAt: "2026-11-23T15:31:25.447Z"
 branch: "factory/RQ-0008"
 createdFromCommit: "e437540fffabae8ab92adeac104dbd9f52e3d538"
+completedRunId: "20261123153145-RQ-0008"
+completedBy: "Mustafa Bulut"
+completedAt: "2026-11-23T15:32:40.861Z"
 githubPullRequestUrl: "https://github.com/mustafaBulut1/agents-diet/pull/8"
 githubPullRequestIid: 8
 githubIssueUrl: "https://github.com/mustafaBulut1/agents-diet/issues/7"
