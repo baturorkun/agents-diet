@@ -1,34 +1,29 @@
 # Rewrite
 
-Read this only after the user said yes in step 7. A rewrite removes words that carry no instruction. It must never change what an agent does after reading the file.
+Make the file shorter and easier to read without changing what an agent would do after reading it. Use your judgment.
 
-## Never change
+## Keep
 
-- **Commands and code:** commands, flags, code blocks.
-- **Identifiers:** file paths, URLs, environment variables, function names.
-- **Numbers:** versions, limits, timeouts, dates.
-- **Force of a rule:** `must`, `never`, `always`, `only`, `should`, and their equivalents in the rule's language.
-- **Conditions and exceptions:** `if`, `unless`, `except`, `only when`.
-- **Scope:** the directory, tool or language a rule applies to.
-- **Order:** procedure steps, "first X, then Y".
-- **Examples and reasons:** examples and "because…" clauses. They help an agent decide edge cases.
-- **Sensitive items:** security rules, lines holding a secret, contradictory and unclear rules.
-- **Structure:** headings, `@import` lines, frontmatter, pointers, and the language of the rule.
+- The meaning of every rule.
+- Prohibitions, requirements and exceptions: words such as `never`, `must`, `do not`, `cannot`, `unless`, `except`, `only if`, and their equivalents in the rule's language.
+- Commands, code, paths, URLs, names and numbers, exactly as written.
+- The number and order of procedure steps.
+- Headings, `@import` lines and frontmatter.
+- Security rules. Never print or copy a secret.
+- The language of each rule.
 
-## May change
+## You are free to
 
-- Filler: "It is important to note that…", "Please make sure to…".
-- A sentence that repeats the same thing in the same section.
-- An introduction or transition that carries no rule.
-- A long sentence, shortened without changing its meaning.
+- Reword, shorten or merge sentences.
+- Remove filler, repetition and over-explanation.
+- Turn long prose into a short list.
 
-When in doubt, leave the sentence as it is.
+If nothing is worth changing, say so.
 
 ## Steps
 
-1. Copy the file to `.agents-diet-rewrite/<same path>` and edit only the copy. Do not add, remove, rename or reorder a heading.
-2. Run `npx agents-diet rewrite check <file> <candidate>`. It compares each section and rejects one that lost a protected item, changed their order, shrank by more than 30%, or saves under 100 bytes. Restore a rejected section in the candidate, or fix it and check again. Never work around the check.
-3. For each accepted section, show the user the text before and after, the bytes saved, and which new sentence carries each old rule. If a rule has no sentence, restore that section.
-4. Ask which sections to apply, as one multi-select question (or a numbered list, then wait).
-5. Run `npx agents-diet rewrite apply <file> <candidate> --sections <numbers>`. If the user chose none, run `npx agents-diet rewrite discard <candidate>`.
-6. Run `npx agents-diet check --json` again. Report each section rewritten and the bytes saved. Leave the changes uncommitted: `git diff` shows and undoes them. Without Git, `apply` keeps the original beside the file as `<file>.before-rewrite`.
+1. Write the complete new version to `<name>.rewrite.md` beside the original (`CLAUDE.md` → `CLAUDE.rewrite.md`) with your file-writing tool. Do not change the original, and do not keep the draft only in memory.
+2. Run `npx agents-diet rewrite preview <file> <name>.rewrite.md`. If it rejects a section, fix that section in the file and run it again.
+3. Show the user the path and the preview, by section heading, never by number. Ask in the chat: **Approve**, **Cancel**, or write what should change. On a correction, update the file, run the preview again and ask again.
+4. Approve: run `npx agents-diet rewrite apply <file> <name>.rewrite.md`. Cancel, or nothing to apply: run `npx agents-diet rewrite discard <name>.rewrite.md`.
+5. When you finish, for any reason, make sure `<name>.rewrite.md` is gone. Do not ask before removing it. Leave the changes uncommitted. Without Git, `apply` keeps the original as `<file>.before-rewrite`; tell the user where it is.

@@ -1,7 +1,7 @@
 ---
 name: agents-diet
 description: Make a project's AGENTS.md, CLAUDE.md or GEMINI.md smaller, leaner or faster to load without losing a rule. Use when asked to shrink, trim, slim, diet, clean up, split or reorganise agent instruction files, or when agents-diet check reports a file over its limit. Not for editing source code or for writing new rules.
-agents-diet-version: 0.1.0
+agents-diet-version: 0.2.0
 ---
 
 # Put AGENTS.md / CLAUDE.md on a diet
@@ -97,6 +97,6 @@ Leave the changes uncommitted for the user to review.
 
 ## 7. Offer a rewrite
 
-Only with a person in the session, and only after the report. Ask one question: "Shall we rewrite?" Ask it also when everything follows the rules and nothing got smaller. Say that commands, paths, numbers and prohibitions will not change, and that each section is shown before it is applied. Without an explicit yes, change nothing. In an unattended run, skip this step and never rewrite.
+Only with a person in the session, and only after the report. Ask one question: "Shall we rewrite?" Ask it also when everything follows the rules and nothing got smaller. Say that commands, paths, numbers and prohibitions will not change, and that the new version is written to a separate `<name>.rewrite.md` file. You then ask for approval in the chat: on approval the `.md` is changed; a correction is fixed and asked again; at the end the temporary file is removed. Without an explicit yes, change nothing. In an unattended run, skip this step and never rewrite.
 
 On yes, read `references/rewrite.md` and follow it.

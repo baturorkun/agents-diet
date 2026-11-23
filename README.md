@@ -99,10 +99,13 @@ Then ask your agent: *"put AGENTS.md on a diet"*. Following the skill it:
 6. measures again and reports before/after, what moved where, what was deleted
    and why, and its questions, leaving the changes uncommitted for you.
 7. asks at the end whether to rewrite. Only on your yes, and never unattended,
-   it shortens wording section by section: commands, paths, numbers,
-   prohibitions, conditions and order stay. `agents-diet rewrite check` rejects
-   a section that lost one of them, shrank over 30% or saves under 100 bytes;
-   you pick which accepted sections `agents-diet rewrite apply` writes.
+   it shortens the wording: commands, paths, numbers, prohibitions, exceptions
+   and procedure steps stay. The new version is written to a real file beside the
+   original (`CLAUDE.rewrite.md`) that you can open. `agents-diet rewrite
+   preview` compares the two by section heading, with what stays and why and
+   every changed line. You approve in the chat and the `.md` is changed, write a
+   correction and get a new version to approve, or cancel. The temporary file is
+   removed at the end.
 
 It never invents a rule, changes a rule's meaning, deletes what it does not
 understand, writes outside the project without asking, or commits.

@@ -4,7 +4,7 @@ import { parseArgs } from 'node:util';
 import { check, UsageError, type Report } from './check.js';
 import { init, type InitTarget } from './init.js';
 import { detectNotifyTools, formatNotice, installNotify, notifyMessage, NOTIFY_TOOLS, parseTools, removeNotify, type NotifyFormat } from './notify.js';
-import { parseSections, rewriteApply, rewriteCheck, rewriteDiscard, type RewriteReport } from './rewrite.js';
+import { rewriteApply, rewriteCheck, rewriteDiscard, rewritePreview, type RewritePreview, type RewriteReport } from './rewrite.js';
 
 const HELP = `Usage: agents-diet <command> [options]
 
@@ -18,13 +18,16 @@ Commands:
                        and .claude/skills/agents-diet/ (Claude Code). Adds a
                        session-start hook for the tools the project uses: at
                        the size limit it suggests shrinking, never starts it.
-  rewrite check <file> <candidate>
-                       Compare a rewrite candidate with the file, section by
-                       section, against the rewrite limits. Changes nothing.
-  rewrite apply <file> <candidate> --sections 2,5
-                       Apply only those accepted sections, remove the candidate.
-  rewrite discard <candidate>
-                       Remove a candidate under .agents-diet-rewrite/.
+  rewrite preview <file> <new-file>
+                       Compare CLAUDE.md with its CLAUDE.rewrite.md, by section
+                       heading, with the changed lines. Changes nothing.
+  rewrite check <file> <new-file>
+                       Compare the new file with the rewrite limits.
+  rewrite apply <file> <new-file> [--exclude "<heading>"]...
+                       Apply the accepted sections, except the named ones, and
+                       remove the new file.
+  rewrite discard <new-file>
+                       Remove a <name>.rewrite.md.
 
 Options for check:
   --max-bytes <n>      The size limit per file (else package.json
@@ -81,8 +84,8 @@ function human(report: Report): string {
 
 function rewriteHuman(report: RewriteReport): string {
   const lines = report.sections.filter((s) => s.status !== 'unchanged').map((s) => {
-    const name = s.heading ?? '(before the first heading)';
-    const head = `${s.status === 'accepted' ? '✓' : '✗'} ${s.index}. ${name}  ${s.beforeBytes} → ${s.afterBytes} bytes`;
+    const name = s.heading?.replace(/^#+\s*/, '') ?? '(before the first heading)';
+    const head = `${s.status === 'accepted' ? '✓' : '✗'} ${name}  ${s.beforeBytes} → ${s.afterBytes} bytes`;
     return [head, ...s.reasons.map((r) => `    ${r}`), ...s.missing.slice(0, 8).map((m) => `    missing: ${m}`)].join('\n');
   });
   if (lines.length === 0) lines.push('The candidate changes nothing.');
@@ -90,21 +93,53 @@ function rewriteHuman(report: RewriteReport): string {
   return lines.join('\n');
 }
 
-function runRewrite(args: string[], json: boolean | undefined, sections: string | undefined): number {
+function previewHuman(file: string, candidate: string, p: RewritePreview): string {
+  if (p.identical) return `${candidate} is identical to ${file}: no rewrite was written.`;
+  const size = (n: number): string => n.toLocaleString('en-US');
+  const percent = p.beforeBytes === 0 ? 0 : Math.round((100 * (p.beforeBytes - p.afterBytes)) / p.beforeBytes);
+  const lines = [`Original: ${file}`, `New file: ${candidate}`, `Compare:  git diff --no-index -- ${file} ${candidate}`, '', p.canApply ? `${size(p.beforeBytes)} → ${size(p.afterBytes)} bytes (${percent}% smaller)` : `No safe shortening found: ${size(p.beforeBytes)} bytes stay as they are`];
+  if (p.shortened.length > 0) {
+    lines.push('', 'To shorten');
+    for (const s of p.shortened) lines.push(`  ${s.heading}  ${size(s.beforeBytes)} → ${size(s.afterBytes)} bytes  ${s.changedLines} line(s) changed`);
+  }
+  if (p.kept.length > 0) {
+    lines.push('', 'Left as they are');
+    for (const s of p.kept) {
+      lines.push(`  ${s.heading}  ${s.why}`);
+      for (const m of s.missing.slice(0, 5)) lines.push(`    would lose: ${m}`);
+    }
+  }
+  if (p.shortened.length > 0) {
+    lines.push('', 'Changed lines');
+    for (const s of p.shortened) {
+      lines.push(`  ${s.heading}`);
+      for (const c of s.changes) lines.push(`  ${c.type === 'removed' ? '-' : '+'} ${c.text}`);
+    }
+  }
+  return lines.join('\n');
+}
+
+function runRewrite(args: string[], json: boolean | undefined, exclude: string[]): number {
   const [action, first, second, ...rest] = args;
   if (rest.length > 0) throw new UsageError(`Unexpected argument: ${rest[0]}`);
+  if (action !== 'apply' && exclude.length > 0) throw new UsageError('--exclude applies to rewrite apply');
   if (action === 'discard' && first && !second) {
     rewriteDiscard(first);
     console.log(`discarded  ${first}`);
     return 0;
   }
-  if ((action !== 'check' && action !== 'apply') || !first || !second) throw new UsageError('Usage: agents-diet rewrite check|apply <file> <candidate>, or rewrite discard <candidate>');
+  if ((action !== 'check' && action !== 'preview' && action !== 'apply') || !first || !second) throw new UsageError('Usage: agents-diet rewrite preview|check|apply <file> <new-file>, or rewrite discard <new-file>');
+  if (action === 'preview') {
+    const preview = rewritePreview(first, second);
+    console.log(json ? JSON.stringify(preview, null, 2) : previewHuman(first, second, preview));
+    return preview.canApply ? 0 : 1;
+  }
   if (action === 'check') {
     const report = rewriteCheck(first, second);
     console.log(json ? JSON.stringify(report, null, 2) : rewriteHuman(report));
     return report.structureOk && report.sections.every((s) => s.status !== 'rejected') ? 0 : 1;
   }
-  const done = rewriteApply(first, second, parseSections(sections));
+  const done = rewriteApply(first, second, exclude);
   console.log(`applied  ${first}  ${done.savedBytes} bytes saved${done.backup ? `; original kept at ${done.backup}` : ''}`);
   return 0;
 }
@@ -124,7 +159,7 @@ function main(argv: string[]): number {
         claude: { type: 'boolean' },
         codex: { type: 'boolean' },
         force: { type: 'boolean' },
-        sections: { type: 'string' },
+        exclude: { type: 'string', multiple: true },
         notify: { type: 'boolean' },
         format: { type: 'string' },
         'notify-for': { type: 'string' },
@@ -156,7 +191,7 @@ function main(argv: string[]): number {
       for (const option of ['max-bytes', 'agents', 'claude', 'codex', 'force', 'notify', 'format', 'notify-for', 'no-notify', 'remove-notify'] as const) {
         if (values[option] !== undefined) throw new UsageError(`--${option} does not apply to rewrite`);
       }
-      return runRewrite(positionals.slice(1), values.json, values.sections);
+      return runRewrite(positionals.slice(1), values.json, values.exclude ?? []);
     } catch (error) {
       if (error instanceof UsageError) {
         console.error(error.message);
@@ -165,8 +200,8 @@ function main(argv: string[]): number {
       throw error;
     }
   }
-  if (values.sections !== undefined) {
-    console.error('--sections applies to rewrite apply');
+  if (values.exclude !== undefined) {
+    console.error('--exclude applies to rewrite apply');
     return 2;
   }
   if ((command !== 'check' && command !== 'init') || rest.length > 0) {
