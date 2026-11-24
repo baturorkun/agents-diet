@@ -1,0 +1,52 @@
+[
+  {
+    "gate": "schemaCheck",
+    "status": "passed",
+    "output": "0 step file(s) valid",
+    "durationMs": 0
+  },
+  {
+    "gate": "build",
+    "status": "passed",
+    "output": "$ tsc --project tsconfig.build.json\n$ node scripts/pack-check.mjs\nagents-diet-0.2.0.tgz: 19 file(s), 33.6 KiB packed, 106.8 KiB unpacked\n  LICENSE (1.0 KiB)\n  README.md (7.5 KiB)\n  dist/check.d.ts (4.3 KiB)\n  dist/check.js (19.3 KiB)\n  dist/cli.d.ts (0.0 KiB)\n  dist/cli.js (14.5 KiB)\n  dist/index.d.ts (0.9 KiB)\n  dist/index.js (0.6 KiB)\n  dist/init.d.ts (1.8 KiB)\n  dist/init.js (5.5 KiB)\n  dist/notify.d.ts (1.9 KiB)\n  dist/notify.js (9.4 KiB)\n  dist/rewrite.d.ts (2.9 KiB)\n  dist/rewrite.js (16.6 KiB)\n  package.json (1.2 KiB)\n  skill/references/anti-patterns.md (2.7 KiB)\n  skill/references/examples.md (4.7 KiB)\n  skill/references/rewrite.md (1.7 KiB)\n  skill/SKILL.md (10.1 KiB)\n\npack check passed",
+    "durationMs": 1502,
+    "command": "pnpm build && pnpm pack:check",
+    "cwd": "/Users/mustafabulut/Developer/agents-diet/agents-diet-fork"
+  },
+  {
+    "gate": "typeCheck",
+    "status": "passed",
+    "output": "$ tsc --noEmit",
+    "durationMs": 323,
+    "command": "pnpm typecheck",
+    "cwd": "/Users/mustafabulut/Developer/agents-diet/agents-diet-fork"
+  },
+  {
+    "gate": "lint",
+    "status": "skipped",
+    "output": "No targetProject.commands.lint configured.",
+    "durationMs": 0
+  },
+  {
+    "gate": "tests",
+    "status": "passed",
+    "output": "$ pnpm build && node --test tests/*.test.mjs\n$ tsc --project tsconfig.build.json\n✔ a clean project has no finding (27.112583ms)\n✔ sizes: bytes in UTF-8, characters, and tokens as characters / 4 (16.91925ms)\n✔ each finding kind is reported once on the file it belongs to (22.183ms)\n✔ the limit: the flag, then package.json, then .agents-diet.json, then 32768, and its source (61.106833ms)\n✔ .claude/CLAUDE.md with the import satisfies the root; @./AGENTS.md is an import too (30.143917ms)\n✔ references that exist or are not paths are not reported (27.357459ms)\n✔ @imports in CLAUDE.md are checked like other references (52.154333ms)\n✔ files under node_modules, .git, dist, build, coverage and .pnpm-store are not looked at (17.018834ms)\n✔ referencedPaths keeps one entry per path (0.440417ms)\n✔ check only reads (39.430667ms)\n✔ code, versions, hosts and bare extensions are not paths (0.1045ms)\n✔ a file named without a directory may live anywhere in the project (28.681ms)\n✔ in a Git checkout, ignored files are not checked and ignored paths are not dead (44.013875ms)\n✔ ignore: paths the project leaves out, from package.json or .agents-diet.json (33.154084ms)\n✔ a directory that does not exist is a usage error (0.068583ms)\n✔ RQ-L03: GEMINI.md that does not import AGENTS.md is a warning, unless settings name AGENTS.md (59.3965ms)\n✔ RQ-L03: AGENTS.md files read together over the limit (Codex), reported on the deepest one (40.253042ms)\n✔ RQ-L03: a CLAUDE.md that is a symlink to AGENTS.md needs no import (9.015083ms)\n✔ RQ-L06: a path relative to the instruction file or to the project root is live, with no finding (24.689833ms)\n✔ RQ-L06: a leading / that is not a system path is project-relative; one found nowhere is not reported (15.961208ms)\n✔ RQ-L06: a leading / path found only inside a package is a reference-elsewhere warning (16.585875ms)\n✔ RQ-L06: a path that is the unique end of a project path is a reference-elsewhere warning, not dead (16.647584ms)\n✔ RQ-L06: a suffix match must be whole segments (16.497875ms)\n✔ RQ-L06: a bare directory name with a trailing slash matching one directory is a warning; a file of that name does not count (17.263375ms)\n✔ RQ-L06: a path found in several places is a reference-elsewhere warning listing up to 3 (16.5895ms)\n✔ RQ-L06: a gitignored path is still not reported, even when its name exists elsewhere (32.265083ms)\n✔ --version prints the package version; --help and no command exit 0 (245.37025ms)\n✔ check exits 0 on a clean project and prints the summary (132.243125ms)\n✔ check exits 1 on findings and names them (88.713209ms)\n✔ warnings alone exit 0 (RQ-L03): an AGENTS.md without a CLAUDE.md (90.168875ms)\n✔ --json prints the documented shape (77.189125ms)\n✔ the human report lists sections over 1 KiB, largest first (90.231292ms)\n✔ usage errors exit 2: unknown command, unknown option, bad limit, not a directory (377.749375ms)\n✔ the shipped skill names itself, triggers on shrinking, and carries the package version (1.903542ms)\n✔ init writes both locations by default, with the references; --claude or --agents alone (RQ-L02) (7.361084ms)\n✔ a missing reference makes the package's own copy out of date, so init writes it again (4.20775ms)\n✔ init replaces only its own earlier copy; a changed copy is kept unless --force (3.564792ms)\n✔ init from the CLI: says what it did, exits 2 on usage errors; install is no command (743.643792ms)\n✔ an unedited older copy is updated without --force; a file it no longer ships goes (16.394166ms)\n✔ an edited skill or reference is kept; --force replaces it (10.801333ms)\n✔ a copy from before the manifest with other text is kept; a current one gets a manifest (3.991125ms)\n✔ a manifest pointing outside the skill folder is not trusted and deletes nothing (2.891875ms)\n✔ check --notify: silent under the limit, one suggestion over it, exit 0, no file changed (203.454ms)\n✔ nested AGENTS.md files over the limit together are suggested too (89.402958ms)\n✔ a broken project or config never blocks a session (151.621667ms)\n✔ each tool gets the documented output (0.332167ms)\n✔ install writes each config shape, is idempotent, and remove leaves nothing (4.170459ms)\n✔ existing settings and hooks are kept, on install and on remove (1.108542ms)\n✔ an invalid config is refused and left unchanged, and no other tool is written (1.366166ms)\n✔ plain init adds the hook for detected tools, or Claude Code when there are none (199.599083ms)\n✔ --claude, --agents, --no-notify, --notify-for and --remove-notify (506.482333ms)\n✔ a broken config: plain init reports it and installs the skill; --notify-for is an error (114.070333ms)\n✔ the hook command prints the suggestion when installed and stays silent, exit 0, when not (225.786417ms)\n✔ bin paths are relative without ./ and point at built files (0.659333ms)\n✔ removing filler is accepted; the other section is unchanged (2.76725ms)\n✔ changing a command is rejected (0.378542ms)\n✔ changing a file name is rejected (0.127958ms)\n✔ changing the force of a rule is rejected (0.109ms)\n✔ changing an exception is rejected (0.121958ms)\n✔ numbers, paths, env vars, URLs and identifiers are protected (0.339833ms)\n✔ code blocks, imports and security lines must stay exact (0.315959ms)\n✔ frontmatter may not change (0.070833ms)\n✔ the acceptance examples: common words may go, a prohibition may not (0.91125ms)\n✔ each protected word is kept (0.725875ms)\n✔ a procedure step can be shortened; its number, order and protected items cannot change (0.302542ms)\n✔ removing an exact repeat of a sentence is allowed (0.122125ms)\n✔ there is no size limit: a large or a small saving can be applied; growth cannot (0.312458ms)\n✔ small savings in several sections count together (0.219167ms)\n✔ auth or token alone does not lock a line; a secret value and a security rule do (0.208708ms)\n✔ a changed heading rejects every section (0.037542ms)\n✔ sections join back to the exact text; a # inside a code fence is no heading (0.606875ms)\n✔ merge takes all accepted sections and leaves out headings by name (0.62725ms)\n✔ the preview uses real headings, explains what stays and shows changed lines, without numbers (0.292209ms)\n✔ no safe shortening: nothing can be applied and the preview says why (0.0995ms)\n✔ a secret value is masked in the preview and in check (0.078875ms)\n✔ apply writes the selection, removes the candidate and, without Git, keeps the original (1.494791ms)\n✔ a rejected apply changes nothing; discard removes only a candidate (0.758917ms)\n✔ only the matching visible file is accepted; discard removes nothing else (130.538458ms)\n✔ the preview names both real files and how to compare them (135.993541ms)\n✔ the CLI: preview and check exit 0 or 1, apply excludes by heading, usage errors exit 2 (711.764459ms)\n✔ sections: the preamble, headings 1–3, nesting, steps, code blocks and paths (2.622917ms)\n✔ sections: no preamble entry when the file starts with a heading; a file without headings is one preamble (0.146708ms)\n✔ check reports sections per file (19.082292ms)\nℹ tests 83\nℹ suites 0\nℹ pass 83\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 1586.480958",
+    "durationMs": 2009,
+    "command": "pnpm test",
+    "cwd": "/Users/mustafabulut/Developer/agents-diet/agents-diet-fork"
+  },
+  {
+    "gate": "templateCheck",
+    "status": "passed",
+    "output": "$ node scripts/template-check.mjs\nTEMPLATE: 4 template-owned file(s), 0 overridden, none changed unmarked.",
+    "durationMs": 70,
+    "command": "pnpm template:check",
+    "cwd": "/Users/mustafabulut/Developer/agents-diet/agents-diet-fork"
+  },
+  {
+    "gate": "security",
+    "status": "passed",
+    "output": "3 applied file(s) scanned — no issues",
+    "durationMs": 1
+  }
+]

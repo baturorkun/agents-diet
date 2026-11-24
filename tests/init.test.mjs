@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { createHash } from 'node:crypto';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import test from 'node:test';
-import { init, SKILL_RELATIVE_PATHS, UsageError } from '../dist/index.js';
+import { init, SKILL_MANIFEST, SKILL_RELATIVE_PATHS, UsageError } from '../dist/index.js';
 import { withProject } from './helpers.mjs';
 
 const skill = readFileSync('skill/SKILL.md', 'utf8');
@@ -15,29 +16,74 @@ test('the shipped skill names itself, triggers on shrinking, and carries the pac
   assert.match(frontmatter, /^name: agents-diet$/m);
   assert.match(frontmatter, /^description: .*(shrink|smaller).*$/m);
   assert.match(frontmatter, new RegExp(`^agents-diet-version: ${version.replace(/\./g, '\\.')}$`, 'm'), 'bump agents-diet-version in skill/SKILL.md with package.json');
-  // The six steps and the never-do list.
-  for (const heading of ['## 1. Measure first', '## 2. Fix what is broken', '## 3. Classify every section', '## 4. Rewrite what stays', '## 5. Keep the two files in step', '## 6. Measure again and report', '## Never']) {
+  // The limits first, then the six steps in the order they run (RQ-L01).
+  for (const heading of ['## Limits', '## 1. Measure', '## 2. Fix what is broken', '## 3. Classify every section', '## 4. Ask before you change', '## 5. Apply', '## 6. Report', '## 7. Offer a rewrite']) {
     assert.ok(skill.includes(`\n${heading}\n`), heading);
   }
-  for (const kind of ['Delete', 'Global', 'Skill', 'Docs', 'Subdirectory', 'Keep']) assert.match(skill, new RegExp(`\\*\\*${kind}\\.\\*\\*`));
+  assert.ok(skill.indexOf('## Limits') < skill.indexOf('## 1. Measure'), 'the limits come first');
+  for (const kind of ['Delete', 'Global', 'Skill', 'Docs', 'Subdirectory', 'Keep']) assert.match(skill, new RegExp(`\\*\\*${kind}:\\*\\*`));
   assert.match(skill, /npx agents-diet check --json/);
-  assert.match(skill, /Ask before writing\s+outside the project/);
-  assert.match(skill, /Run `git commit`/);
+  assert.match(skill, /Never write outside the project/);
+  assert.match(skill, /Move text word for word/);
+  assert.match(skill, /Never commit, push or publish/);
+  // New documents go to agents-docs, never to the project's docs/ (RQ-L07).
+  assert.match(skill, /`agents-docs\/<topic>\.md`/);
+  assert.match(skill, /Never add a new document to an existing `docs\/` folder/);
+  for (const text of [skill, readFileSync('skill/references/examples.md', 'utf8')]) assert.doesNotMatch(text, /(?<![-\w])docs\/(<topic>|billing-export)\.md/);
+  // Rewrite is offered at the end, only on a yes, never unattended (RQ-L08).
+  assert.match(skill, /Shall we rewrite\?/);
+  assert.match(skill, /Without an explicit yes, change nothing/);
+  assert.match(skill, /separate `<name>\.rewrite\.md` file/);
+  const rewriteGuide = readFileSync('skill/references/rewrite.md', 'utf8');
+  assert.match(rewriteGuide, /do not keep the draft only in memory/i);
+  // The approval loop and cleanup (RQ-L14).
+  assert.match(skill, /ask for approval in the chat/);
+  assert.match(rewriteGuide, /Ask in the chat: \*\*Approve\*\*, \*\*Cancel\*\*, or write what should change/);
+  assert.match(rewriteGuide, /On a correction, update the file, run the preview again and ask again/);
+  // Room for the model, no size target, the temporary file always goes (RQ-L15).
+  assert.match(rewriteGuide, /Use your judgment/);
+  assert.doesNotMatch(rewriteGuide, /\d+%|target/i);
+  assert.match(rewriteGuide, /for any reason, make sure `<name>\.rewrite\.md` is gone\. Do not ask before removing it/);
+  assert.match(skill, /In an unattended run, skip this step and never rewrite/);
+  // The references the skill points to ship with it.
+  for (const reference of ['references/examples.md', 'references/anti-patterns.md', 'references/rewrite.md']) {
+    assert.ok(skill.includes(reference), reference);
+    assert.ok(existsSync(join('skill', reference)), `skill/${reference} exists`);
+  }
 });
 
-test('init writes the Claude Code copy by default, and the Codex copy when .codex/ exists or --codex is given', () => {
+test('init writes both locations by default, with the references; --claude or --agents alone (RQ-L02)', () => {
   withProject({ 'package.json': '{}' }, (root) => {
-    assert.deepEqual(init(root), [{ target: 'claude', path: SKILL_RELATIVE_PATHS.claude, outcome: 'written' }]);
-    assert.equal(readFileSync(join(root, SKILL_RELATIVE_PATHS.claude), 'utf8'), skill);
-    assert.ok(!existsSync(join(root, '.codex')));
-  });
-  withProject({ '.codex/config.toml': '' }, (root) => {
-    assert.deepEqual(init(root).map((result) => [result.target, result.outcome]), [['claude', 'written'], ['codex', 'written']]);
-    assert.equal(readFileSync(join(root, SKILL_RELATIVE_PATHS.codex), 'utf8'), skill);
+    assert.deepEqual(init(root), [
+      { target: 'agents', path: SKILL_RELATIVE_PATHS.agents, outcome: 'written' },
+      { target: 'claude', path: SKILL_RELATIVE_PATHS.claude, outcome: 'written' },
+    ]);
+    for (const target of ['agents', 'claude']) {
+      const dir = dirname(join(root, SKILL_RELATIVE_PATHS[target]));
+      assert.equal(readFileSync(join(dir, 'SKILL.md'), 'utf8'), skill);
+      for (const reference of ['references/examples.md', 'references/anti-patterns.md']) {
+        assert.equal(readFileSync(join(dir, reference), 'utf8'), readFileSync(join('skill', reference), 'utf8'), `${target} ${reference}`);
+      }
+    }
+    assert.ok(!existsSync(join(root, '.codex')), 'nothing goes to .codex/skills: Codex reads .agents/skills');
   });
   withProject({}, (root) => {
-    assert.deepEqual(init(root, { targets: ['codex'] }).map((result) => result.target), ['codex']);
+    assert.deepEqual(init(root, { targets: ['claude'] }).map((result) => result.target), ['claude']);
+    assert.ok(!existsSync(join(root, '.agents')));
+  });
+  withProject({}, (root) => {
+    assert.deepEqual(init(root, { targets: ['agents'] }).map((result) => result.target), ['agents']);
     assert.ok(!existsSync(join(root, '.claude')));
+  });
+});
+
+test('a missing reference makes the package\'s own copy out of date, so init writes it again', () => {
+  withProject({}, (root) => {
+    init(root, { targets: ['claude'] });
+    const dir = dirname(join(root, SKILL_RELATIVE_PATHS.claude));
+    rmSync(join(dir, 'references/examples.md'));
+    assert.equal(init(root, { targets: ['claude'] })[0].outcome, 'written');
+    assert.ok(existsSync(join(dir, 'references/examples.md')));
   });
 });
 
@@ -47,31 +93,33 @@ test('init replaces only its own earlier copy; a changed copy is kept unless --f
     mkdirSync(join(root, '.claude/skills/agents-diet'), { recursive: true });
     // Ours, from an earlier version: replaced.
     writeFileSync(path, skill.replace(/^agents-diet-version: .*$/m, 'agents-diet-version: 0.0.1'));
-    assert.equal(init(root)[0].outcome, 'written');
+    assert.equal(init(root, { targets: ['claude'] })[0].outcome, 'written');
     assert.equal(readFileSync(path, 'utf8'), skill);
     // Already this version: current, untouched.
-    assert.equal(init(root)[0].outcome, 'current');
+    assert.equal(init(root, { targets: ['claude'] })[0].outcome, 'current');
     // Edited by the project: kept, then replaced with force.
     writeFileSync(path, skill + '\n- Also: never touch the CSS.\n');
-    assert.equal(init(root)[0].outcome, 'kept');
+    assert.equal(init(root, { targets: ['claude'] })[0].outcome, 'kept');
     assert.match(readFileSync(path, 'utf8'), /never touch the CSS/);
-    assert.equal(init(root, { force: true })[0].outcome, 'written');
+    assert.equal(init(root, { targets: ['claude'], force: true })[0].outcome, 'written');
     assert.equal(readFileSync(path, 'utf8'), skill);
     // Someone else's skill of the same name: kept.
     writeFileSync(path, '---\nname: agents-diet\n---\nmine\n');
-    assert.equal(init(root)[0].outcome, 'kept');
+    assert.equal(init(root, { targets: ['claude'] })[0].outcome, 'kept');
   });
 });
 
 test('init from the CLI: says what it did, exits 2 on usage errors; install is no command', () => {
-  withProject({ '.codex/config.toml': '' }, (root) => {
+  withProject({}, (root) => {
     const first = cli('init', root);
     assert.equal(first.status, 0, first.stderr);
+    assert.match(first.stdout, /^wrote {2}\.agents\/skills\/agents-diet\/SKILL\.md$/m);
     assert.match(first.stdout, /^wrote {2}\.claude\/skills\/agents-diet\/SKILL\.md$/m);
-    assert.match(first.stdout, /^wrote {2}\.codex\/skills\/agents-diet\/SKILL\.md$/m);
     const again = cli('init', root, '--claude');
     assert.match(again.stdout, /^already current {2}\.claude/m);
-    assert.doesNotMatch(again.stdout, /codex/);
+    assert.doesNotMatch(again.stdout, /\.agents/);
+    // --codex, kept from 0.1.0, now means .agents/skills/.
+    assert.match(cli('init', root, '--codex').stdout, /^already current {2}\.agents/m);
     writeFileSync(join(root, SKILL_RELATIVE_PATHS.claude), 'changed\n');
     assert.match(cli('init', root, '--claude').stdout, /^kept \(changed here; --force replaces it\)/m);
     assert.match(cli('init', root, '--claude', '--force').stdout, /^wrote/m);
@@ -82,5 +130,74 @@ test('init from the CLI: says what it did, exits 2 on usage errors; install is n
   assert.match(old.stderr, /Unknown command: install/);
   assert.equal(cli('init', '.', '--json').status, 2);
   assert.equal(cli('check', '.', '--force').status, 2);
+  assert.equal(cli('check', '.', '--agents').status, 2);
   assert.throws(() => init('/no/such/agents-diet/dir'), UsageError);
+});
+
+// RQ-L10: the README's promise. An unedited older copy is updated; an edited one is kept.
+const older = (root, target = 'claude') => {
+  const dir = dirname(join(root, SKILL_RELATIVE_PATHS[target]));
+  const manifestPath = join(dir, SKILL_MANIFEST);
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'));
+  const text = `${skill}\nAn instruction from an earlier version.\n`.replace(/^agents-diet-version: .*$/m, 'agents-diet-version: 0.0.1');
+  writeFileSync(join(dir, 'SKILL.md'), text);
+  writeFileSync(join(dir, 'references/old.md'), 'shipped earlier\n');
+  manifest.files['SKILL.md'] = createHash('sha256').update(text).digest('hex');
+  manifest.files['references/old.md'] = createHash('sha256').update('shipped earlier\n').digest('hex');
+  writeFileSync(manifestPath, JSON.stringify(manifest));
+  return dir;
+};
+
+test('an unedited older copy is updated without --force; a file it no longer ships goes', () => {
+  withProject({}, (root) => {
+    init(root, { targets: ['claude'] });
+    const dir = older(root);
+    writeFileSync(join(dir, 'references/mine.md'), 'added by the user\n');
+    assert.equal(init(root, { targets: ['claude'] })[0].outcome, 'written');
+    assert.equal(readFileSync(join(dir, 'SKILL.md'), 'utf8'), skill);
+    assert.ok(!existsSync(join(dir, 'references/old.md')));
+    assert.equal(readFileSync(join(dir, 'references/mine.md'), 'utf8'), 'added by the user\n');
+    assert.equal(init(root, { targets: ['claude'] })[0].outcome, 'current');
+  });
+});
+
+test('an edited skill or reference is kept; --force replaces it', () => {
+  for (const file of ['SKILL.md', 'references/examples.md']) {
+    withProject({}, (root) => {
+      init(root, { targets: ['claude'] });
+      const dir = older(root);
+      writeFileSync(join(dir, file), 'edited here\n');
+      assert.equal(init(root, { targets: ['claude'] })[0].outcome, 'kept', file);
+      assert.equal(readFileSync(join(dir, file), 'utf8'), 'edited here\n');
+      assert.equal(init(root, { targets: ['claude'], force: true })[0].outcome, 'written');
+      assert.equal(readFileSync(join(dir, 'SKILL.md'), 'utf8'), skill);
+    });
+  }
+});
+
+test('a copy from before the manifest with other text is kept; a current one gets a manifest', () => {
+  withProject({}, (root) => {
+    const path = join(root, SKILL_RELATIVE_PATHS.claude);
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, `${skill}\nolder text\n`.replace(/^agents-diet-version: .*$/m, 'agents-diet-version: 0.0.1'));
+    assert.equal(init(root, { targets: ['claude'] })[0].outcome, 'kept');
+    assert.ok(!existsSync(join(dirname(path), SKILL_MANIFEST)));
+    init(root, { targets: ['claude'], force: true });
+    rmSync(join(dirname(path), SKILL_MANIFEST));
+    assert.equal(init(root, { targets: ['claude'] })[0].outcome, 'current');
+    assert.ok(existsSync(join(dirname(path), SKILL_MANIFEST)));
+  });
+});
+
+test('a manifest pointing outside the skill folder is not trusted and deletes nothing', () => {
+  withProject({ 'outside.md': 'keep me\n' }, (root) => {
+    init(root, { targets: ['claude'] });
+    const dir = dirname(join(root, SKILL_RELATIVE_PATHS.claude));
+    const hash = createHash('sha256').update('keep me\n').digest('hex');
+    writeFileSync(join(dir, SKILL_MANIFEST), JSON.stringify({ files: { '../../../outside.md': hash } }));
+    writeFileSync(join(dir, 'SKILL.md'), 'edited\n');
+    assert.equal(init(root, { targets: ['claude'] })[0].outcome, 'kept');
+    init(root, { targets: ['claude'], force: true });
+    assert.equal(readFileSync(join(root, 'outside.md'), 'utf8'), 'keep me\n');
+  });
 });

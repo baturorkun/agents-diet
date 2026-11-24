@@ -1,0 +1,52 @@
+[
+  {
+    "gate": "schemaCheck",
+    "status": "passed",
+    "output": "0 step file(s) valid",
+    "durationMs": 0
+  },
+  {
+    "gate": "build",
+    "status": "passed",
+    "output": "$ tsc --project tsconfig.build.json\n$ node scripts/pack-check.mjs\nagents-diet-0.1.0.tgz: 19 file(s), 31.7 KiB packed, 99.1 KiB unpacked\n  LICENSE (1.0 KiB)\n  README.md (7.3 KiB)\n  dist/check.d.ts (4.3 KiB)\n  dist/check.js (19.3 KiB)\n  dist/cli.d.ts (0.0 KiB)\n  dist/cli.js (12.6 KiB)\n  dist/index.d.ts (0.9 KiB)\n  dist/index.js (0.6 KiB)\n  dist/init.d.ts (1.8 KiB)\n  dist/init.js (5.5 KiB)\n  dist/notify.d.ts (1.9 KiB)\n  dist/notify.js (9.4 KiB)\n  dist/rewrite.d.ts (2.3 KiB)\n  dist/rewrite.js (11.1 KiB)\n  package.json (1.2 KiB)\n  skill/references/anti-patterns.md (2.7 KiB)\n  skill/references/examples.md (4.7 KiB)\n  skill/references/rewrite.md (2.3 KiB)\n  skill/SKILL.md (10.0 KiB)\n\npack check passed",
+    "durationMs": 1616,
+    "command": "pnpm build && pnpm pack:check",
+    "cwd": "/Users/mustafabulut/Developer/agents-diet/agents-diet-fork"
+  },
+  {
+    "gate": "typeCheck",
+    "status": "passed",
+    "output": "$ tsc --noEmit",
+    "durationMs": 333,
+    "command": "pnpm typecheck",
+    "cwd": "/Users/mustafabulut/Developer/agents-diet/agents-diet-fork"
+  },
+  {
+    "gate": "lint",
+    "status": "skipped",
+    "output": "No targetProject.commands.lint configured.",
+    "durationMs": 0
+  },
+  {
+    "gate": "tests",
+    "status": "passed",
+    "output": "$ pnpm build && node --test tests/*.test.mjs\n$ tsc --project tsconfig.build.json\n✔ a clean project has no finding (21.578542ms)\n✔ sizes: bytes in UTF-8, characters, and tokens as characters / 4 (23.085333ms)\n✔ each finding kind is reported once on the file it belongs to (23.492834ms)\n✔ the limit: the flag, then package.json, then .agents-diet.json, then 32768, and its source (62.15925ms)\n✔ .claude/CLAUDE.md with the import satisfies the root; @./AGENTS.md is an import too (32.090334ms)\n✔ references that exist or are not paths are not reported (21.105708ms)\n✔ @imports in CLAUDE.md are checked like other references (12.721834ms)\n✔ files under node_modules, .git, dist, build, coverage and .pnpm-store are not looked at (8.911125ms)\n✔ referencedPaths keeps one entry per path (0.113792ms)\n✔ check only reads (17.230083ms)\n✔ code, versions, hosts and bare extensions are not paths (0.102958ms)\n✔ a file named without a directory may live anywhere in the project (18.968959ms)\n✔ in a Git checkout, ignored files are not checked and ignored paths are not dead (39.549584ms)\n✔ ignore: paths the project leaves out, from package.json or .agents-diet.json (41.641041ms)\n✔ a directory that does not exist is a usage error (0.070542ms)\n✔ RQ-L03: GEMINI.md that does not import AGENTS.md is a warning, unless settings name AGENTS.md (69.923208ms)\n✔ RQ-L03: AGENTS.md files read together over the limit (Codex), reported on the deepest one (37.925125ms)\n✔ RQ-L03: a CLAUDE.md that is a symlink to AGENTS.md needs no import (11.972958ms)\n✔ RQ-L06: a path relative to the instruction file or to the project root is live, with no finding (27.072417ms)\n✔ RQ-L06: a leading / that is not a system path is project-relative; one found nowhere is not reported (13.957416ms)\n✔ RQ-L06: a leading / path found only inside a package is a reference-elsewhere warning (17.953792ms)\n✔ RQ-L06: a path that is the unique end of a project path is a reference-elsewhere warning, not dead (20.197792ms)\n✔ RQ-L06: a suffix match must be whole segments (19.303958ms)\n✔ RQ-L06: a bare directory name with a trailing slash matching one directory is a warning; a file of that name does not count (14.076708ms)\n✔ RQ-L06: a path found in several places is a reference-elsewhere warning listing up to 3 (14.267583ms)\n✔ RQ-L06: a gitignored path is still not reported, even when its name exists elsewhere (23.460209ms)\n✔ --version prints the package version; --help and no command exit 0 (211.206458ms)\n✔ check exits 0 on a clean project and prints the summary (103.513167ms)\n✔ check exits 1 on findings and names them (94.433625ms)\n✔ warnings alone exit 0 (RQ-L03): an AGENTS.md without a CLAUDE.md (86.488833ms)\n✔ --json prints the documented shape (74.361792ms)\n✔ the human report lists sections over 1 KiB, largest first (81.17275ms)\n✔ usage errors exit 2: unknown command, unknown option, bad limit, not a directory (343.628875ms)\n✔ the shipped skill names itself, triggers on shrinking, and carries the package version (1.211792ms)\n✔ init writes both locations by default, with the references; --claude or --agents alone (RQ-L02) (7.903083ms)\n✔ a missing reference makes the package's own copy out of date, so init writes it again (4.006333ms)\n✔ init replaces only its own earlier copy; a changed copy is kept unless --force (4.436666ms)\n✔ init from the CLI: says what it did, exits 2 on usage errors; install is no command (672.595792ms)\n✔ an unedited older copy is updated without --force; a file it no longer ships goes (3.528083ms)\n✔ an edited skill or reference is kept; --force replaces it (6.282166ms)\n✔ a copy from before the manifest with other text is kept; a current one gets a manifest (2.052959ms)\n✔ a manifest pointing outside the skill folder is not trusted and deletes nothing (2.63075ms)\n✔ check --notify: silent under the limit, one suggestion over it, exit 0, no file changed (190.219417ms)\n✔ nested AGENTS.md files over the limit together are suggested too (39.432417ms)\n✔ a broken project or config never blocks a session (154.367042ms)\n✔ each tool gets the documented output (0.456083ms)\n✔ install writes each config shape, is idempotent, and remove leaves nothing (4.540958ms)\n✔ existing settings and hooks are kept, on install and on remove (0.601834ms)\n✔ an invalid config is refused and left unchanged, and no other tool is written (0.574292ms)\n✔ plain init adds the hook for detected tools, or Claude Code when there are none (206.533666ms)\n✔ --claude, --agents, --no-notify, --notify-for and --remove-notify (458.663625ms)\n✔ a broken config: plain init reports it and installs the skill; --notify-for is an error (119.02375ms)\n✔ the hook command prints the suggestion when installed and stays silent, exit 0, when not (454.16425ms)\n✔ bin paths are relative without ./ and point at built files (0.651459ms)\n✔ removing filler is accepted; the other section is unchanged (2.627583ms)\n✔ changing a command is rejected (0.161291ms)\n✔ changing a file name is rejected (0.100583ms)\n✔ changing the force of a rule is rejected (0.096375ms)\n✔ changing an exception is rejected (0.107042ms)\n✔ changing an order word is rejected (0.0835ms)\n✔ numbers, paths, env vars, URLs and identifiers are protected (0.27625ms)\n✔ code blocks, numbered steps, imports and security lines must stay exact (0.154792ms)\n✔ frontmatter and protected order may not change (0.135083ms)\n✔ removing an exact repeat of a sentence is allowed (0.188334ms)\n✔ the bounds: over 30% or under 100 bytes is rejected, and growth (0.990042ms)\n✔ a changed heading rejects every section (0.18475ms)\n✔ sections join back to the exact text; a # inside a code fence is no heading (1.070834ms)\n✔ merge takes only selected accepted sections and refuses a rejected one (0.449875ms)\n✔ apply writes the selection, removes the candidate and, without Git, keeps the original (1.595917ms)\n✔ a rejected apply changes nothing; discard removes only a candidate (1.284375ms)\n✔ the CLI: check exits 0 or 1, apply needs sections, usage errors exit 2 (505.944ms)\n✔ sections: the preamble, headings 1–3, nesting, steps, code blocks and paths (1.971375ms)\n✔ sections: no preamble entry when the file starts with a heading; a file without headings is one preamble (0.1015ms)\n✔ check reports sections per file (23.4655ms)\nℹ tests 74\nℹ suites 0\nℹ pass 74\nℹ fail 0\nℹ cancelled 0\nℹ skipped 0\nℹ todo 0\nℹ duration_ms 1723.048333",
+    "durationMs": 2138,
+    "command": "pnpm test",
+    "cwd": "/Users/mustafabulut/Developer/agents-diet/agents-diet-fork"
+  },
+  {
+    "gate": "templateCheck",
+    "status": "passed",
+    "output": "$ node scripts/template-check.mjs\nTEMPLATE: 4 template-owned file(s), 0 overridden, none changed unmarked.",
+    "durationMs": 69,
+    "command": "pnpm template:check",
+    "cwd": "/Users/mustafabulut/Developer/agents-diet/agents-diet-fork"
+  },
+  {
+    "gate": "security",
+    "status": "passed",
+    "output": "4 applied file(s) scanned — no issues",
+    "durationMs": 1
+  }
+]

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readFileSync, symlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
 import { check, findInstructionFiles, referencedPaths, DEFAULT_MAX_BYTES, UsageError } from '../dist/index.js';
@@ -41,7 +41,10 @@ test('each finding kind is reported once on the file it belongs to', () => {
         'AGENTS.md: dead-reference scripts/gone.sh',
         'pkg/AGENTS.md: no-agents-import',
       ]);
-      assert.match(report.files[0].findings[1].message, /Claude Code does not read AGENTS\.md/);
+      assert.match(report.files[0].findings[1].message, /reads AGENTS\.md only from version 2\.1\.277/);
+      // RQ-L03: a missing CLAUDE.md is a warning; the rest are errors.
+      assert.deepEqual(report.files[0].findings.map((finding) => finding.severity), ['error', 'warning', 'error', 'error']);
+      assert.deepEqual([report.summary.errors, report.summary.warnings], [4, 1]);
     },
   );
 });
@@ -148,4 +151,100 @@ test('ignore: paths the project leaves out, from package.json or .agents-diet.js
 
 test('a directory that does not exist is a usage error', () => {
   assert.throws(() => check('/no/such/agents-diet/dir'), UsageError);
+});
+
+test('RQ-L03: GEMINI.md that does not import AGENTS.md is a warning, unless settings name AGENTS.md', () => {
+  withProject({ ...CLEAN, 'GEMINI.md': '# Gemini\n\nUse pnpm.\n' }, (root) => {
+    const report = check(root);
+    assert.ok(report.files.some((file) => file.path === 'GEMINI.md'), 'GEMINI.md is measured');
+    assert.deepEqual(kinds(report), ['AGENTS.md: no-gemini-import']);
+    assert.equal(report.files.find((file) => file.path === 'AGENTS.md').findings[0].severity, 'warning');
+  });
+  withProject({ ...CLEAN, 'GEMINI.md': '@AGENTS.md\n' }, (root) => assert.deepEqual(kinds(check(root)), []));
+  withProject({ ...CLEAN, 'GEMINI.md': 'x\n', '.gemini/settings.json': JSON.stringify({ context: { fileName: ['AGENTS.md', 'GEMINI.md'] } }) }, (root) => assert.deepEqual(kinds(check(root)), []));
+});
+
+test('RQ-L03: AGENTS.md files read together over the limit (Codex), reported on the deepest one', () => {
+  withProject({ ...CLEAN, 'AGENTS.md': 'a'.repeat(60) + '\n', 'pkg/AGENTS.md': 'b'.repeat(60) + '\n', 'pkg/CLAUDE.md': '@AGENTS.md\n', 'other/AGENTS.md': 'c\n', 'other/CLAUDE.md': '@AGENTS.md\n' }, (root) => {
+    const report = check(root, { maxBytes: 100 });
+    assert.deepEqual(kinds(report), ['pkg/AGENTS.md: over-limit-combined']);
+    assert.match(report.files.find((file) => file.path === 'pkg/AGENTS.md').findings[0].message, /with the AGENTS\.md files above it \(AGENTS\.md\) 122 bytes/);
+  });
+});
+
+test('RQ-L03: a CLAUDE.md that is a symlink to AGENTS.md needs no import', () => {
+  withProject({ 'AGENTS.md': '# Rules\n' }, (root) => {
+    symlinkSync('AGENTS.md', join(root, 'CLAUDE.md'));
+    assert.deepEqual(kinds(check(root)), []);
+  });
+});
+
+const elsewhere = (report) => report.files.flatMap((file) => file.findings.filter((finding) => finding.kind === 'reference-elsewhere'));
+
+test('RQ-L06: a path relative to the instruction file or to the project root is live, with no finding', () => {
+  withProject({ ...CLEAN, 'pkg/AGENTS.md': 'Local `lib/a.ts`; from the root `src/index.ts`.\n', 'pkg/CLAUDE.md': '@AGENTS.md\n', 'pkg/lib/a.ts': '\n' }, (root) => {
+    assert.deepEqual(kinds(check(root)), []);
+  });
+});
+
+test('RQ-L06: a leading / that is not a system path is project-relative; one found nowhere is not reported', () => {
+  withProject({ ...CLEAN, 'AGENTS.md': 'Scripts in `/scripts/`, tests in `/tests/unit.py`. Routes: `/api/v1/users`. System: `/etc/hosts`, `/usr/local/bin/`.\n', 'scripts/run.sh': '\n', 'tests/unit.py': '\n', 'fixtures/etc/hosts': '\n' }, (root) => {
+    assert.deepEqual(kinds(check(root)), []);
+  });
+  assert.deepEqual(referencedPaths('`/parsers/` `/etc/hosts` `/Users/me/a.md`'), []);
+  assert.deepEqual(referencedPaths('`/parsers/` `/etc/hosts` `/Users/me/a.md`', true), ['/parsers/']);
+});
+
+test('RQ-L06: a leading / path found only inside a package is a reference-elsewhere warning', () => {
+  withProject({ ...CLEAN, 'AGENTS.md': 'Parsers live in `/parsers/`.\n', 'builder/parsers/shape.py': '\n' }, (root) => {
+    const report = check(root);
+    assert.deepEqual(kinds(report), ['AGENTS.md: reference-elsewhere /parsers/']);
+    const [finding] = elsewhere(report);
+    assert.equal(finding.severity, 'warning');
+    assert.equal(finding.message, '/parsers/ exists at builder/parsers/; the written path is relative to a package or subdirectory');
+    assert.deepEqual(finding.locations, ['builder/parsers/']);
+    assert.deepEqual([report.summary.errors, report.summary.warnings], [0, 1]);
+  });
+});
+
+test('RQ-L06: a path that is the unique end of a project path is a reference-elsewhere warning, not dead', () => {
+  withProject({ ...CLEAN, 'AGENTS.md': 'Edit `a/b/c.ts` and [the pom](core/pom.xml); `a/b/gone.ts` is dead.\n', 'pkg/x/a/b/c.ts': '\n', 'libs/core/pom.xml': '\n' }, (root) => {
+    const report = check(root);
+    // Link targets are read before code spans.
+    assert.deepEqual(kinds(report), ['AGENTS.md: reference-elsewhere core/pom.xml', 'AGENTS.md: reference-elsewhere a/b/c.ts', 'AGENTS.md: dead-reference a/b/gone.ts']);
+    assert.match(elsewhere(report)[1].message, /^a\/b\/c\.ts exists at pkg\/x\/a\/b\/c\.ts;/);
+  });
+});
+
+test('RQ-L06: a suffix match must be whole segments', () => {
+  withProject({ ...CLEAN, 'AGENTS.md': 'See `b/c.ts`.\n', 'x/ab/c.ts': '\n' }, (root) => {
+    assert.deepEqual(kinds(check(root)), ['AGENTS.md: dead-reference b/c.ts']);
+  });
+});
+
+test('RQ-L06: a bare directory name with a trailing slash matching one directory is a warning; a file of that name does not count', () => {
+  withProject({ ...CLEAN, 'AGENTS.md': 'Modules: `querydsl-core/`, `gone-module/`, `notes.md/`.\n', 'libraries/querydsl-core/pom.xml': '\n', 'docs/notes.md': '\n' }, (root) => {
+    const report = check(root);
+    assert.deepEqual(kinds(report), ['AGENTS.md: reference-elsewhere querydsl-core/', 'AGENTS.md: dead-reference gone-module/', 'AGENTS.md: dead-reference notes.md/']);
+    assert.match(elsewhere(report)[0].message, /exists at libraries\/querydsl-core\//);
+  });
+});
+
+test('RQ-L06: a path found in several places is a reference-elsewhere warning listing up to 3', () => {
+  const places = Object.fromEntries(['a', 'b', 'c', 'd'].map((dir) => [`${dir}/util/io.ts`, '\n']));
+  withProject({ ...CLEAN, 'AGENTS.md': 'Use `util/io.ts`.\n', ...places }, (root) => {
+    const report = check(root);
+    assert.deepEqual(kinds(report), ['AGENTS.md: reference-elsewhere util/io.ts']);
+    const [finding] = elsewhere(report);
+    assert.equal(finding.message, 'util/io.ts exists in 4 places (a/util/io.ts, b/util/io.ts, c/util/io.ts and 1 more); the written path does not say which');
+    assert.deepEqual(finding.locations, ['a/util/io.ts', 'b/util/io.ts', 'c/util/io.ts']);
+    assert.equal(report.summary.errors, 0);
+  });
+});
+
+test('RQ-L06: a gitignored path is still not reported, even when its name exists elsewhere', () => {
+  withProject({ ...CLEAN, '.gitignore': 'out/\n', 'AGENTS.md': 'The build writes `out/report.md`.\n', 'docs/out/report.md': '\n' }, (root) => {
+    spawnSync('git', ['init', '-q'], { cwd: root });
+    assert.deepEqual(kinds(check(root)), []);
+  });
 });
